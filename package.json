@@ -10,6 +10,8 @@
     "clean": "rimraf dist out common-ts-dist main-ts-dist build-resources icon-build",
     "start": "electron-vite preview",
     "dev": "electron-vite dev -w",
+    "dev:web": "vite --config vite.config.web.ts",
+    "build:web": "vite build --config vite.config.web.ts",
     "icon-gen": "mkdirp icon-build build-resources/appx && tsx script/icon-gen.mts",
     "download-ffmpeg-darwin-x64": "mkdirp ffmpeg/darwin-x64 && cd ffmpeg/darwin-x64 && wget https://github.com/mifi/ffmpeg-build-script/releases/download/8.0-1/ffmpeg-macos-X64 -O ffmpeg && wget https://github.com/mifi/ffmpeg-build-script/releases/download/8.0-1/ffprobe-macos-X64 -O ffprobe && chmod +x ffmpeg && chmod +x ffprobe",
     "download-ffmpeg-darwin-arm64": "mkdirp ffmpeg/darwin-arm64 && cd ffmpeg/darwin-arm64 && wget https://github.com/mifi/ffmpeg-build-script/releases/download/8.0-1/ffmpeg-macos-ARM64 -O ffmpeg && wget https://github.com/mifi/ffmpeg-build-script/releases/download/8.0-1/ffprobe-macos-ARM64 -O ffprobe && chmod +x ffmpeg && chmod +x ffprobe",

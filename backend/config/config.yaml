@@ -1,0 +1,20 @@
+server:
+  host: 0.0.0.0
+  port: 8080
+  max_upload_size: 10737418240  # 10GB
+  production: false
+  cors_origins:
+    - "*"
+
+storage:
+  base_path: /var/losslesscut
+  auto_cleanup: true
+  cleanup_after_days: 7
+
+ffmpeg:
+  path: ffmpeg
+  threads: 0  # 0 = auto
+
+ytdlp:
+  path: yt-dlp
+  max_quality: 1080p
