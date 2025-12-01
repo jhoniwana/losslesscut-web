@@ -37,6 +37,7 @@ func (m *Manager) Initialize() error {
 		m.TempDir(),
 		m.DownloadsDir(),
 		m.VideosDir(),
+		m.WaveformsDir(),
 	}
 
 	for _, dir := range dirs {
@@ -77,6 +78,16 @@ func (m *Manager) DownloadsDir() string {
 // VideosDir returns the videos metadata directory path
 func (m *Manager) VideosDir() string {
 	return filepath.Join(m.basePath, "videos")
+}
+
+// WaveformsDir returns the waveforms cache directory path
+func (m *Manager) WaveformsDir() string {
+	return filepath.Join(m.basePath, "waveforms")
+}
+
+// GetWaveformPath returns the full path for a waveform file
+func (m *Manager) GetWaveformPath(filename string) string {
+	return filepath.Join(m.WaveformsDir(), filename)
 }
 
 // GetVideoPath returns the full path for a video file

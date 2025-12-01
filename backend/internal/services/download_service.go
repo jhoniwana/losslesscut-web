@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mifi/lossless-cut/backend/internal/config"
 	"github.com/mifi/lossless-cut/backend/internal/models"
@@ -107,6 +110,33 @@ func (s *DownloadService) CancelDownload(id string) error {
 	return nil
 }
 
+// isDirectVideoURL checks if the URL points directly to a video file
+func (s *DownloadService) isDirectVideoURL(urlStr string) bool {
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return false
+	}
+
+	// Get the path without query parameters
+	path := strings.ToLower(parsedURL.Path)
+
+	// Check for common video extensions
+	videoExts := []string{".mp4", ".mov", ".mkv", ".webm", ".avi", ".wmv", ".flv", ".m4v", ".3gp", ".ts", ".m2ts"}
+	for _, ext := range videoExts {
+		if strings.HasSuffix(path, ext) {
+			return true
+		}
+	}
+
+	// Also check Content-Type header if no extension match
+	// Some CDNs use query params for the filename
+	if strings.Contains(urlStr, "response-content-type=") || strings.Contains(urlStr, "content-type=") {
+		return true
+	}
+
+	return false
+}
+
 // runDownload executes the actual download
 func (s *DownloadService) runDownload(downloadID string, req DownloadRequest, videoNumber int) {
 	s.mu.Lock()
@@ -116,6 +146,259 @@ func (s *DownloadService) runDownload(downloadID string, req DownloadRequest, vi
 	download.Status = models.DownloadStatusDownloading
 	s.storage.UpdateDownload(download)
 
+	// Check if this is a direct video URL (not YouTube/etc)
+	if s.isDirectVideoURL(req.URL) {
+		s.runDirectDownload(download, req, videoNumber)
+		return
+	}
+
+	// Use yt-dlp for YouTube and other supported sites
+	s.runYtdlpDownload(download, req, videoNumber)
+}
+
+// runDirectDownload downloads a video directly from URL using HTTP
+func (s *DownloadService) runDirectDownload(download *models.Download, req DownloadRequest, videoNumber int) {
+	s.logger.Info("Starting direct HTTP download",
+		zap.String("id", download.ID),
+		zap.String("url", req.URL),
+	)
+
+	// Determine output path
+	outputDir := s.storage.GetDownloadPath()
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		s.logger.Error("Failed to create download directory", zap.Error(err))
+		download.Status = models.DownloadStatusFailed
+		download.Error = err.Error()
+		s.storage.UpdateDownload(download)
+		return
+	}
+
+	// Extract extension from URL or use .mp4 as default
+	ext := s.getExtensionFromURL(req.URL)
+	outputPath := filepath.Join(outputDir, fmt.Sprintf("video%d%s", videoNumber, ext))
+
+	// Extract filename for title
+	download.Title = s.getTitleFromURL(req.URL)
+	s.storage.UpdateDownload(download)
+
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 30 * time.Minute, // Long timeout for large files
+	}
+
+	// Create request
+	httpReq, err := http.NewRequest("GET", req.URL, nil)
+	if err != nil {
+		s.logger.Error("Failed to create HTTP request", zap.Error(err))
+		download.Status = models.DownloadStatusFailed
+		download.Error = err.Error()
+		s.storage.UpdateDownload(download)
+		return
+	}
+
+	// Add headers to mimic browser
+	httpReq.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	httpReq.Header.Set("Accept", "*/*")
+	httpReq.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	httpReq.Header.Set("Referer", req.URL)
+
+	// Execute request
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		s.logger.Error("HTTP request failed", zap.Error(err))
+		download.Status = models.DownloadStatusFailed
+		download.Error = err.Error()
+		s.storage.UpdateDownload(download)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
+		s.logger.Error("HTTP request returned error status",
+			zap.Int("status", resp.StatusCode),
+		)
+		download.Status = models.DownloadStatusFailed
+		download.Error = fmt.Sprintf("HTTP %d: %s", resp.StatusCode, resp.Status)
+		s.storage.UpdateDownload(download)
+		return
+	}
+
+	// Get content length for progress
+	contentLength := resp.ContentLength
+
+	// Create output file
+	outFile, err := os.Create(outputPath)
+	if err != nil {
+		s.logger.Error("Failed to create output file", zap.Error(err))
+		download.Status = models.DownloadStatusFailed
+		download.Error = err.Error()
+		s.storage.UpdateDownload(download)
+		return
+	}
+	defer outFile.Close()
+
+	// Download with progress tracking
+	var downloaded int64
+	buf := make([]byte, 256*1024) // 256KB buffer for faster downloads
+	lastProgressUpdate := time.Now()
+
+	for {
+		if download.Status == models.DownloadStatusCancelled {
+			s.logger.Info("Download cancelled", zap.String("id", download.ID))
+			outFile.Close()
+			os.Remove(outputPath)
+			s.storage.UpdateDownload(download)
+			return
+		}
+
+		n, err := resp.Body.Read(buf)
+		if n > 0 {
+			_, writeErr := outFile.Write(buf[:n])
+			if writeErr != nil {
+				s.logger.Error("Failed to write to file", zap.Error(writeErr))
+				download.Status = models.DownloadStatusFailed
+				download.Error = writeErr.Error()
+				s.storage.UpdateDownload(download)
+				return
+			}
+			downloaded += int64(n)
+
+			// Update progress every 500ms to avoid too many updates
+			if contentLength > 0 && time.Since(lastProgressUpdate) > 500*time.Millisecond {
+				download.Progress = float64(downloaded) / float64(contentLength) * 100
+				s.storage.UpdateDownload(download)
+				lastProgressUpdate = time.Now()
+
+				s.logger.Debug("Download progress",
+					zap.String("id", download.ID),
+					zap.Float64("progress", download.Progress),
+					zap.Int64("downloaded", downloaded),
+					zap.Int64("total", contentLength),
+				)
+			}
+		}
+
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			s.logger.Error("Failed to read response body", zap.Error(err))
+			download.Status = models.DownloadStatusFailed
+			download.Error = err.Error()
+			s.storage.UpdateDownload(download)
+			return
+		}
+	}
+
+	download.FilePath = outputPath
+
+	s.logger.Info("Direct download completed",
+		zap.String("id", download.ID),
+		zap.String("file", outputPath),
+		zap.Int64("size", downloaded),
+	)
+
+	// Import the downloaded video
+	filename := filepath.Base(outputPath)
+	video, err := s.videoService.CreateFromUpload(filename, outputPath)
+	if err != nil {
+		s.logger.Error("Failed to import downloaded video", zap.Error(err))
+		download.Status = models.DownloadStatusFailed
+		download.Error = fmt.Sprintf("failed to import video: %v", err)
+		s.storage.UpdateDownload(download)
+		return
+	}
+
+	video.OriginalURL = download.URL
+
+	download.VideoID = video.ID
+	download.Status = models.DownloadStatusCompleted
+	download.Progress = 100.0
+	s.storage.UpdateDownload(download)
+
+	s.logger.Info("Download completed and imported",
+		zap.String("id", download.ID),
+		zap.String("file", outputPath),
+		zap.String("video_id", video.ID),
+	)
+
+	// Clean up from memory
+	s.mu.Lock()
+	delete(s.downloads, download.ID)
+	s.mu.Unlock()
+}
+
+// getExtensionFromURL extracts file extension from URL
+func (s *DownloadService) getExtensionFromURL(urlStr string) string {
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return ".mp4"
+	}
+
+	path := parsedURL.Path
+	ext := strings.ToLower(filepath.Ext(path))
+
+	// Valid video extensions
+	validExts := map[string]bool{
+		".mp4": true, ".mov": true, ".mkv": true, ".webm": true,
+		".avi": true, ".wmv": true, ".flv": true, ".m4v": true,
+		".3gp": true, ".ts": true, ".m2ts": true,
+	}
+
+	if validExts[ext] {
+		return ext
+	}
+
+	// Check query params for filename
+	if filename := parsedURL.Query().Get("response-content-disposition"); filename != "" {
+		if idx := strings.Index(filename, "filename="); idx >= 0 {
+			fn := filename[idx+9:]
+			fn = strings.Trim(fn, "\"")
+			if e := filepath.Ext(fn); validExts[strings.ToLower(e)] {
+				return strings.ToLower(e)
+			}
+		}
+	}
+
+	return ".mp4"
+}
+
+// getTitleFromURL extracts a title from the URL
+func (s *DownloadService) getTitleFromURL(urlStr string) string {
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return "Downloaded Video"
+	}
+
+	// Check for filename in content-disposition query param
+	if filename := parsedURL.Query().Get("response-content-disposition"); filename != "" {
+		if idx := strings.Index(filename, "filename="); idx >= 0 {
+			fn := filename[idx+9:]
+			fn = strings.Trim(fn, "\"")
+			// Remove extension
+			if ext := filepath.Ext(fn); ext != "" {
+				fn = fn[:len(fn)-len(ext)]
+			}
+			return fn
+		}
+	}
+
+	// Use filename from path
+	path := parsedURL.Path
+	filename := filepath.Base(path)
+	if ext := filepath.Ext(filename); ext != "" {
+		filename = filename[:len(filename)-len(ext)]
+	}
+
+	if filename != "" && filename != "." {
+		return filename
+	}
+
+	return "Downloaded Video"
+}
+
+// runYtdlpDownload downloads using yt-dlp for YouTube and similar sites
+func (s *DownloadService) runYtdlpDownload(download *models.Download, req DownloadRequest, videoNumber int) {
 	// Get video info first
 	info, err := s.getVideoInfo(req.URL)
 	if err != nil {
@@ -212,7 +495,7 @@ func (s *DownloadService) runDownload(downloadID string, req DownloadRequest, vi
 	// Wait for completion
 	if err := cmd.Wait(); err != nil {
 		if download.Status == models.DownloadStatusCancelled {
-			s.logger.Info("Download cancelled", zap.String("id", downloadID))
+			s.logger.Info("Download cancelled", zap.String("id", download.ID))
 			s.storage.UpdateDownload(download)
 			return
 		}
@@ -281,14 +564,14 @@ func (s *DownloadService) runDownload(downloadID string, req DownloadRequest, vi
 	s.storage.UpdateDownload(download)
 
 	s.logger.Info("Download completed and imported",
-		zap.String("id", downloadID),
+		zap.String("id", download.ID),
 		zap.String("file", downloadedFile),
 		zap.String("video_id", video.ID),
 	)
 
 	// Clean up from memory
 	s.mu.Lock()
-	delete(s.downloads, downloadID)
+	delete(s.downloads, download.ID)
 	s.mu.Unlock()
 }
 

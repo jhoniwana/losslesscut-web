@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"sync"
 
@@ -147,27 +148,55 @@ func (e *Executor) parseProgress(stderr io.Reader, stderrBuf *bytes.Buffer, dura
 func (e *Executor) CutVideo(ctx context.Context, input, output string, start, end float64, onProgress ProgressCallback) error {
 	duration := end - start
 
-	// OPTIMIZED for LOSSLESS cutting with proper timestamp handling:
-	// 1. -i input file first
-	// 2. -ss AFTER -i = output seeking (frame-accurate with -c copy)
+	// OPTIMIZED for FAST LOSSLESS cutting:
+	// 1. -ss BEFORE -i = INPUT SEEKING (very fast, seeks to keyframe)
+	// 2. -i input file
 	// 3. -t = duration to extract
 	// 4. -map 0 = copy all streams (video, audio, subtitles)
 	// 5. -c copy = lossless stream copy (no re-encoding)
 	// 6. -avoid_negative_ts make_zero = fix timestamp issues
 	// 7. -movflags +faststart = web-optimized MP4 (moov atom at start)
 	//
-	// NOTE: We use -ss AFTER -i for -c copy to avoid timestamp conflicts.
-	// This is slightly slower but ensures proper frame extraction with stream copy.
+	// INPUT SEEKING (-ss before -i) is MUCH faster than output seeking
+	// because FFmpeg seeks directly to the keyframe without decoding.
+	// For lossless -c copy operations this gives near-instant results.
+	args := []string{
+		"-hide_banner",
+		"-ss", fmt.Sprintf("%.6f", start),    // INPUT SEEKING (before -i) = FAST
+		"-i", input,
+		"-t", fmt.Sprintf("%.6f", duration),  // Duration to extract
+		"-map", "0",                          // Copy all streams
+		"-c", "copy",                         // Lossless copy - no re-encoding
+		"-avoid_negative_ts", "make_zero",    // Fix timestamp issues
+		"-movflags", "+faststart",            // Web-optimized (moov atom at start)
+		"-y",                                 // Overwrite output
+		output,
+	}
+
+	return e.Execute(ctx, ExecuteOptions{
+		Args:       args,
+		Duration:   duration,
+		OnProgress: onProgress,
+	})
+}
+
+// CutVideoAccurate cuts a video segment with frame-accurate precision (slower)
+// Use this when exact frame accuracy is more important than speed
+func (e *Executor) CutVideoAccurate(ctx context.Context, input, output string, start, end float64, onProgress ProgressCallback) error {
+	duration := end - start
+
+	// Frame-accurate cutting with output seeking
+	// This is slower but ensures exact frame boundaries
 	args := []string{
 		"-hide_banner",
 		"-i", input,
-		"-ss", fmt.Sprintf("%.3f", start),     // OUTPUT SEEKING (after -i) = accurate with -c copy
-		"-t", fmt.Sprintf("%.3f", duration),   // Duration to extract
-		"-map", "0",                           // Copy all streams
-		"-c", "copy",                          // Lossless copy - no re-encoding
+		"-ss", fmt.Sprintf("%.6f", start),    // OUTPUT SEEKING (after -i) = accurate
+		"-t", fmt.Sprintf("%.6f", duration),  // Duration to extract
+		"-map", "0",                          // Copy all streams
+		"-c", "copy",                         // Lossless copy - no re-encoding
 		"-avoid_negative_ts", "make_zero",    // Fix timestamp issues
 		"-movflags", "+faststart",            // Web-optimized (moov atom at start)
-		"-y",                                  // Overwrite output
+		"-y",                                 // Overwrite output
 		output,
 	}
 
@@ -180,11 +209,19 @@ func (e *Executor) CutVideo(ctx context.Context, input, output string, start, en
 
 // MergeVideos merges multiple video segments using concat demuxer (optimized)
 func (e *Executor) MergeVideos(ctx context.Context, inputs []string, output string, totalDuration float64, onProgress ProgressCallback) error {
-	// Create concat file content
+	// Create concat file content and write to a temp file
+	// (using pipe:0 with concat demuxer is unreliable)
+	concatFile := output + ".concat.txt"
 	var concatContent bytes.Buffer
 	for _, input := range inputs {
 		concatContent.WriteString(fmt.Sprintf("file '%s'\n", input))
 	}
+
+	// Write concat list to file
+	if err := os.WriteFile(concatFile, concatContent.Bytes(), 0644); err != nil {
+		return fmt.Errorf("failed to create concat file: %w", err)
+	}
+	defer os.Remove(concatFile) // Clean up concat file
 
 	// OPTIMIZED for LOSSLESS merging:
 	// - concat demuxer with -c copy = no re-encoding
@@ -194,7 +231,7 @@ func (e *Executor) MergeVideos(ctx context.Context, inputs []string, output stri
 		"-hide_banner",
 		"-f", "concat",
 		"-safe", "0",
-		"-i", "pipe:0",                // Read concat file list from stdin
+		"-i", concatFile,              // Read concat file list from temp file
 		"-map", "0",                   // Copy all streams
 		"-c", "copy",                  // Lossless copy - no re-encoding
 		"-avoid_negative_ts", "make_zero",  // Fix timestamp issues
@@ -207,7 +244,6 @@ func (e *Executor) MergeVideos(ctx context.Context, inputs []string, output stri
 		Args:       args,
 		Duration:   totalDuration,
 		OnProgress: onProgress,
-		StdinData:  &concatContent,
 	})
 }
 
@@ -264,6 +300,24 @@ func (e *Executor) ExtractAudio(ctx context.Context, input, output string, durat
 		Args:       args,
 		Duration:   duration,
 		OnProgress: onProgress,
+	})
+}
+
+// GenerateWaveform generates an audio waveform image using FFmpeg showwavespic filter
+func (e *Executor) GenerateWaveform(ctx context.Context, input, output string) error {
+	// Generate a waveform image using FFmpeg's showwavespic filter
+	// This is very fast and produces a good looking waveform
+	args := []string{
+		"-hide_banner",
+		"-i", input,
+		"-filter_complex", "showwavespic=s=1920x120:colors=#667eea|#667eea:scale=sqrt:split_channels=0",
+		"-frames:v", "1",
+		"-y",
+		output,
+	}
+
+	return e.Execute(ctx, ExecuteOptions{
+		Args: args,
 	})
 }
 

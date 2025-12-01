@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"fmt"
-	"io"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -120,17 +122,203 @@ func (h *VideoHandler) Stream(c *gin.Context) {
 		return
 	}
 
-	// Set headers
-	c.Header("Content-Type", "video/mp4") // TODO: Detect proper content type
-	c.Header("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+	fileSize := fileInfo.Size()
+
+	// Detect content type from file extension
+	contentType := getContentType(videoPath)
+
+	// Handle HTTP Range requests for seeking support
+	rangeHeader := c.GetHeader("Range")
+	if rangeHeader != "" {
+		h.handleRangeRequest(c, file, fileSize, contentType, rangeHeader)
+		return
+	}
+
+	// No range request - serve entire file
+	c.Header("Content-Type", contentType)
+	c.Header("Content-Length", strconv.FormatInt(fileSize, 10))
 	c.Header("Accept-Ranges", "bytes")
 
-	// TODO: Implement proper HTTP range requests for seeking
+	http.ServeContent(c.Writer, c.Request, fileInfo.Name(), fileInfo.ModTime(), file)
+}
 
-	// Stream file
-	if _, err := io.Copy(c.Writer, file); err != nil {
-		h.logger.Error("Failed to stream video", zap.Error(err))
+// handleRangeRequest handles HTTP Range requests for video seeking
+func (h *VideoHandler) handleRangeRequest(c *gin.Context, file *os.File, fileSize int64, contentType, rangeHeader string) {
+	// Parse range header: "bytes=start-end"
+	if !strings.HasPrefix(rangeHeader, "bytes=") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid range header"})
+		return
 	}
+
+	rangeSpec := strings.TrimPrefix(rangeHeader, "bytes=")
+	parts := strings.Split(rangeSpec, "-")
+	if len(parts) != 2 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid range format"})
+		return
+	}
+
+	var start, end int64
+	var err error
+
+	if parts[0] != "" {
+		start, err = strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid range start"})
+			return
+		}
+	}
+
+	if parts[1] != "" {
+		end, err = strconv.ParseInt(parts[1], 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid range end"})
+			return
+		}
+	} else {
+		// No end specified - serve from start to end of file
+		// Limit chunk size to 10MB for better streaming performance
+		maxChunkSize := int64(10 * 1024 * 1024)
+		end = start + maxChunkSize - 1
+		if end >= fileSize {
+			end = fileSize - 1
+		}
+	}
+
+	// Validate range
+	if start < 0 || start >= fileSize || end < start || end >= fileSize {
+		c.Header("Content-Range", fmt.Sprintf("bytes */%d", fileSize))
+		c.JSON(http.StatusRequestedRangeNotSatisfiable, gin.H{"error": "range not satisfiable"})
+		return
+	}
+
+	contentLength := end - start + 1
+
+	// Seek to start position
+	if _, err := file.Seek(start, 0); err != nil {
+		h.logger.Error("Failed to seek file", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "seek failed"})
+		return
+	}
+
+	// Set response headers
+	c.Header("Content-Type", contentType)
+	c.Header("Content-Length", strconv.FormatInt(contentLength, 10))
+	c.Header("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, fileSize))
+	c.Header("Accept-Ranges", "bytes")
+	c.Status(http.StatusPartialContent)
+
+	// Stream the requested range
+	written, err := copyN(c.Writer, file, contentLength)
+	if err != nil {
+		h.logger.Debug("Range streaming interrupted",
+			zap.Int64("written", written),
+			zap.Int64("expected", contentLength),
+			zap.Error(err),
+		)
+	}
+}
+
+// copyN copies exactly n bytes from src to dst
+func copyN(dst http.ResponseWriter, src *os.File, n int64) (int64, error) {
+	buf := make([]byte, 32*1024) // 32KB buffer
+	var written int64
+
+	for written < n {
+		toRead := n - written
+		if toRead > int64(len(buf)) {
+			toRead = int64(len(buf))
+		}
+
+		nr, err := src.Read(buf[:toRead])
+		if nr > 0 {
+			nw, werr := dst.Write(buf[:nr])
+			written += int64(nw)
+			if werr != nil {
+				return written, werr
+			}
+		}
+		if err != nil {
+			return written, err
+		}
+	}
+
+	return written, nil
+}
+
+// getContentType returns the MIME type based on file extension
+func getContentType(filePath string) string {
+	ext := strings.ToLower(filepath.Ext(filePath))
+
+	// Common video/audio MIME types
+	mimeTypes := map[string]string{
+		".mp4":  "video/mp4",
+		".mov":  "video/quicktime",
+		".m4v":  "video/x-m4v",
+		".mkv":  "video/x-matroska",
+		".webm": "video/webm",
+		".avi":  "video/x-msvideo",
+		".wmv":  "video/x-ms-wmv",
+		".flv":  "video/x-flv",
+		".3gp":  "video/3gpp",
+		".ogv":  "video/ogg",
+		".ts":   "video/mp2t",
+		".mts":  "video/mp2t",
+		".m2ts": "video/mp2t",
+		// Audio
+		".mp3":  "audio/mpeg",
+		".aac":  "audio/aac",
+		".m4a":  "audio/mp4",
+		".wav":  "audio/wav",
+		".flac": "audio/flac",
+		".ogg":  "audio/ogg",
+		".wma":  "audio/x-ms-wma",
+	}
+
+	if mimeType, ok := mimeTypes[ext]; ok {
+		return mimeType
+	}
+
+	// Fallback to mime package
+	if mimeType := mime.TypeByExtension(ext); mimeType != "" {
+		return mimeType
+	}
+
+	return "application/octet-stream"
+}
+
+func (h *VideoHandler) Waveform(c *gin.Context) {
+	videoID := c.Param("id")
+
+	// Get video metadata
+	video, err := h.services.Video.Get(videoID)
+	if err != nil {
+		h.logger.Error("Video not found", zap.String("id", videoID), zap.Error(err))
+		c.JSON(http.StatusNotFound, gin.H{"error": "video not found"})
+		return
+	}
+
+	// Check if waveform already exists in cache
+	waveformPath := h.services.Storage.GetWaveformPath(videoID + ".png")
+	if h.services.Storage.FileExists(waveformPath) {
+		c.Header("Content-Type", "image/png")
+		c.Header("Cache-Control", "public, max-age=86400") // Cache for 1 day
+		c.File(waveformPath)
+		return
+	}
+
+	// Generate waveform using FFmpeg
+	h.logger.Info("Generating waveform", zap.String("videoId", videoID))
+
+	err = h.services.Video.GenerateWaveform(video.FilePath, waveformPath)
+	if err != nil {
+		h.logger.Error("Failed to generate waveform", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate waveform"})
+		return
+	}
+
+	c.Header("Content-Type", "image/png")
+	c.Header("Cache-Control", "public, max-age=86400")
+	c.File(waveformPath)
 }
 
 func (h *VideoHandler) Delete(c *gin.Context) {

@@ -129,10 +129,11 @@ type UploadResponse struct {
 
 // ExportRequest represents an export request
 type ExportRequest struct {
-	Format       string   `json:"format,omitempty"`
-	OutputName   string   `json:"output_name,omitempty"`
-	SegmentIDs   []string `json:"segment_ids,omitempty"` // If empty, export all
-	MergeSegments bool    `json:"merge_segments,omitempty"`
+	Format         string   `json:"format,omitempty"`
+	OutputName     string   `json:"output_name,omitempty"`
+	SegmentIDs     []string `json:"segment_ids,omitempty"` // If empty, export all
+	MergeSegments  bool     `json:"merge_segments,omitempty"`
+	ExportSeparate bool     `json:"export_separate,omitempty"` // Export each segment as separate file
 }
 
 // Download represents a video download from URL

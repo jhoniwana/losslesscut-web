@@ -39,7 +39,11 @@ func NewRouter(services *services.Services, cfg *config.Config, logger *zap.Logg
 		{
 			systemHandler := handlers.NewSystemHandler(cfg, services, logger)
 			system.GET("/info", systemHandler.Info)
+			system.GET("/stats", systemHandler.GetStats)
 			system.DELETE("/clear-all", systemHandler.ClearAll)
+			system.POST("/session/start", systemHandler.SessionStart)
+			system.POST("/session/heartbeat", systemHandler.SessionHeartbeat)
+			system.POST("/session/end", systemHandler.SessionEnd)
 		}
 
 		// Project endpoints
@@ -69,6 +73,7 @@ func NewRouter(services *services.Services, cfg *config.Config, logger *zap.Logg
 			videos.POST("/upload", videoHandler.Upload)
 			videos.POST("/download", videoHandler.Download)
 			videos.GET("/:id/stream", videoHandler.Stream)
+			videos.GET("/:id/waveform", videoHandler.Waveform)
 			videos.DELETE("/:id", videoHandler.Delete)
 		}
 

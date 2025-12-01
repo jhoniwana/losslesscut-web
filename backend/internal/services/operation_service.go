@@ -71,6 +71,8 @@ func (s *OperationService) runExport(operation *models.Operation, project *model
 		zap.String("operationId", operation.ID),
 		zap.String("inputPath", inputPath),
 		zap.String("videoId", project.VideoID),
+		zap.Bool("mergeSegments", request.MergeSegments),
+		zap.Bool("exportSeparate", request.ExportSeparate),
 	)
 
 	// Determine segments to export
@@ -106,8 +108,6 @@ func (s *OperationService) runExport(operation *models.Operation, project *model
 		format = "mp4"
 	}
 
-	outputPath := s.storage.GetOutputPath(fmt.Sprintf("%s.%s", outputName, format))
-
 	// Progress callback
 	onProgress := func(progress float64) {
 		operation.Progress = progress * 100
@@ -117,22 +117,51 @@ func (s *OperationService) runExport(operation *models.Operation, project *model
 		)
 	}
 
-	// Execute export based on request type
+	var outputFiles []string
 	var exportErr error
-	if request.MergeSegments && len(segments) > 1 {
-		// Export and merge multiple segments
-		exportErr = s.exportMergedSegments(ctx, inputPath, outputPath, segments, onProgress)
-	} else if len(segments) == 1 {
-		// Export single segment
+
+	// Handle different export modes
+	if len(segments) == 1 {
+		// Single segment - just cut it
+		outputPath := s.storage.GetOutputPath(fmt.Sprintf("%s.%s", outputName, format))
 		seg := segments[0]
-		end := seg.Start + 60.0 // Default end if not specified
+		end := seg.Start + 60.0
 		if seg.End != nil {
 			end = *seg.End
 		}
 		exportErr = s.ffmpeg.CutVideo(ctx, inputPath, outputPath, seg.Start, end, onProgress)
+		if exportErr == nil {
+			outputFiles = append(outputFiles, outputPath)
+		}
 	} else {
-		// Export multiple segments as separate files
-		exportErr = s.exportMultipleSegments(ctx, inputPath, outputName, format, segments, onProgress)
+		// Multiple segments
+		if request.MergeSegments {
+			// Export merged file
+			mergedPath := s.storage.GetOutputPath(fmt.Sprintf("%s_merged.%s", outputName, format))
+			exportErr = s.exportMergedSegments(ctx, inputPath, mergedPath, segments, onProgress)
+			if exportErr == nil {
+				outputFiles = append(outputFiles, mergedPath)
+			}
+		}
+
+		if request.ExportSeparate && exportErr == nil {
+			// Export each segment separately
+			separateFiles, err := s.exportMultipleSegments(ctx, inputPath, outputName, format, segments, onProgress)
+			if err != nil {
+				exportErr = err
+			} else {
+				outputFiles = append(outputFiles, separateFiles...)
+			}
+		}
+
+		// If neither merge nor separate was specified, default to merge
+		if !request.MergeSegments && !request.ExportSeparate {
+			mergedPath := s.storage.GetOutputPath(fmt.Sprintf("%s.%s", outputName, format))
+			exportErr = s.exportMergedSegments(ctx, inputPath, mergedPath, segments, onProgress)
+			if exportErr == nil {
+				outputFiles = append(outputFiles, mergedPath)
+			}
+		}
 	}
 
 	if exportErr != nil {
@@ -150,11 +179,12 @@ func (s *OperationService) runExport(operation *models.Operation, project *model
 	operation.Status = models.OperationStatusCompleted
 	operation.Progress = 100
 	operation.CompletedAt = &now
-	operation.OutputFiles = []string{outputPath}
+	operation.OutputFiles = outputFiles
 
 	s.logger.Info("Export completed",
 		zap.String("operationId", operation.ID),
-		zap.String("output", outputPath),
+		zap.Int("outputFilesCount", len(outputFiles)),
+		zap.Strings("outputFiles", outputFiles),
 	)
 }
 
@@ -199,7 +229,9 @@ func (s *OperationService) exportMergedSegments(ctx context.Context, inputPath, 
 	return nil
 }
 
-func (s *OperationService) exportMultipleSegments(ctx context.Context, inputPath, outputBaseName, format string, segments []models.Segment, onProgress ffmpeg.ProgressCallback) error {
+func (s *OperationService) exportMultipleSegments(ctx context.Context, inputPath, outputBaseName, format string, segments []models.Segment, onProgress ffmpeg.ProgressCallback) ([]string, error) {
+	var outputFiles []string
+
 	for i, seg := range segments {
 		segmentName := fmt.Sprintf("%s_segment_%d.%s", outputBaseName, i+1, format)
 		outputPath := s.storage.GetOutputPath(segmentName)
@@ -210,11 +242,13 @@ func (s *OperationService) exportMultipleSegments(ctx context.Context, inputPath
 		}
 
 		if err := s.ffmpeg.CutVideo(ctx, inputPath, outputPath, seg.Start, end, onProgress); err != nil {
-			return fmt.Errorf("failed to export segment %d: %w", i, err)
+			return outputFiles, fmt.Errorf("failed to export segment %d: %w", i, err)
 		}
+
+		outputFiles = append(outputFiles, outputPath)
 	}
 
-	return nil
+	return outputFiles, nil
 }
 
 func (s *OperationService) GetStatus(operationID string) (*models.Operation, error) {

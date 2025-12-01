@@ -98,6 +98,14 @@ func (s *VideoService) Delete(id string) error {
 	return s.storage.DeleteVideo(id)
 }
 
+// GenerateWaveform generates an audio waveform image using FFmpeg
+func (s *VideoService) GenerateWaveform(inputPath, outputPath string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	return s.ffmpeg.GenerateWaveform(ctx, inputPath, outputPath)
+}
+
 // convertProbeToMetadata converts FFprobe result to our models
 func convertProbeToMetadata(probe *ffmpeg.ProbeResult) models.VideoMetadata {
 	metadata := models.VideoMetadata{
