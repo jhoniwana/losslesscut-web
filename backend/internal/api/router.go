@@ -74,8 +74,25 @@ func NewRouter(services *services.Services, cfg *config.Config, logger *zap.Logg
 			videos.POST("/download", videoHandler.Download)
 			videos.GET("/:id/stream", videoHandler.Stream)
 			videos.GET("/:id/waveform", videoHandler.Waveform)
+			videos.POST("/:id/screenshot", videoHandler.Screenshot)
 			videos.DELETE("/:id", videoHandler.Delete)
 		}
+
+		// Screenshot downloads
+		api.GET("/screenshots/:filename", func(c *gin.Context) {
+			filename := c.Param("filename")
+			filepath := services.Storage.GetScreenshotPath(filename)
+
+			if !services.Storage.FileExists(filepath) {
+				logger.Warn("Screenshot not found", zap.String("filename", filename))
+				c.JSON(404, gin.H{"error": "screenshot not found"})
+				return
+			}
+
+			c.Header("Content-Type", "image/jpeg")
+			c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+			c.File(filepath)
+		})
 
 		// Download endpoints (dedicated yt-dlp functionality)
 		downloads := api.Group("/downloads")

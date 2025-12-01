@@ -6,14 +6,17 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
 
-  root: './',
+  root: './src/renderer',
 
   build: {
-    outDir: 'backend/web',
+    outDir: '../../backend/web',
     emptyOutDir: true,
     sourcemap: false,
     target: 'es2020',
     chunkSizeWarningLimit: 3000,
+    rollupOptions: {
+      input: './src/renderer/index.html',
+    },
   },
 
   server: {

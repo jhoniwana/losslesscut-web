@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { IoMdPlay, IoMdPause, IoMdTrash, IoMdDownload, IoMdSkipForward, IoMdSkipBackward, IoMdCheckmark, IoMdClose, IoMdHelpCircle } from 'react-icons/io';
+import { IoMdPlay, IoMdPause, IoMdTrash, IoMdDownload, IoMdSkipForward, IoMdSkipBackward, IoMdCheckmark, IoMdClose, IoMdHelpCircle, IoMdCamera } from 'react-icons/io';
 import { FiUpload, FiScissors } from 'react-icons/fi';
 import { MdContentCut } from 'react-icons/md';
 import { apiClient, Project, Segment, Operation } from '../api/client';
@@ -45,6 +45,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
   const [videoId, setVideoId] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
 
   // Refs
   const isSeekingRef = useRef(false);
@@ -113,22 +114,44 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
           break;
         case 'arrowright':
           e.preventDefault();
-          videoRef.current.currentTime = Math.min(duration, time + (e.shiftKey ? 0.1 : 1));
+          videoRef.current.currentTime = Math.min(durationRef.current, time + (e.shiftKey ? 0.1 : 1));
           setCurrentTime(videoRef.current.currentTime);
           break;
         case 'i':
           e.preventDefault();
-          handleMarkStart();
+          // Set start point directly using video's current time
+          setPendingCutStart(time);
+          setCurrentTime(time);
           break;
         case 'o':
           e.preventDefault();
-          handleMarkEnd();
+          // Create clip using video's current time and ref for pending start
+          {
+            const end = time;
+            const start = pendingCutStartRef.current ?? 0;
+            if (Math.abs(end - start) >= 0.1) {
+              const seg: Segment = {
+                id: `seg-${Date.now()}`,
+                name: `Clip ${segmentsRef.current.length + 1}`,
+                start: Math.min(start, end),
+                end: Math.max(start, end),
+                selected: true,
+              };
+              const updated = [...segmentsRef.current.map(s => ({ ...s, selected: true })), seg];
+              setSegments(updated);
+              if (projectRef.current) {
+                apiClient.updateProject(projectRef.current.id, { ...projectRef.current, segments: updated }).catch(console.error);
+              }
+            }
+            setPendingCutStart(null);
+            setCurrentTime(end);
+          }
           break;
       }
     };
     window.addEventListener('keydown', handle);
     return () => window.removeEventListener('keydown', handle);
-  }, [duration]);
+  }, []);
 
   // Time update
   const animFrameRef = useRef<number | null>(null);
@@ -200,11 +223,14 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
   };
 
   const handleMarkStart = () => {
-    setPendingCutStart(currentTime);
+    const time = videoRef.current?.currentTime ?? currentTime;
+    setPendingCutStart(time);
+    setCurrentTime(time);
   };
 
   const handleMarkEnd = () => {
-    const end = currentTime;
+    const end = videoRef.current?.currentTime ?? currentTime;
+    setCurrentTime(end);
     const start = pendingCutStart ?? 0;
     if (Math.abs(end - start) < 0.1) {
       setPendingCutStart(null);
@@ -261,6 +287,23 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
       a.download = file.split('/').pop() || 'video.mp4';
       a.click();
     });
+  };
+
+  const handleScreenshot = async () => {
+    if (!videoId || isCapturingScreenshot) return;
+    setIsCapturingScreenshot(true);
+    try {
+      const result = await apiClient.captureScreenshot(videoId, currentTime);
+      // Trigger download
+      const a = document.createElement('a');
+      a.href = result.url;
+      a.download = result.filename;
+      a.click();
+    } catch (e) {
+      console.error('Screenshot failed:', e);
+    } finally {
+      setIsCapturingScreenshot(false);
+    }
   };
 
   const deleteSegment = (id: string) => {
@@ -612,6 +655,22 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                   title="Set End Point & Create Clip (O)"
                 >
                   O
+                </button>
+
+                {/* Divider */}
+                <div style={{ width: '1px', height: '32px', background: colors.border, margin: '0 8px' }} />
+
+                {/* Screenshot button */}
+                <button
+                  onClick={handleScreenshot}
+                  disabled={isCapturingScreenshot}
+                  style={{
+                    ...iconBtn,
+                    opacity: isCapturingScreenshot ? 0.7 : 1,
+                  }}
+                  title="Take Screenshot"
+                >
+                  <IoMdCamera size={22} />
                 </button>
               </div>
 

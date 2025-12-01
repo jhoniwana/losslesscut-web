@@ -38,6 +38,7 @@ func (m *Manager) Initialize() error {
 		m.DownloadsDir(),
 		m.VideosDir(),
 		m.WaveformsDir(),
+		m.ScreenshotsDir(),
 	}
 
 	for _, dir := range dirs {
@@ -83,6 +84,16 @@ func (m *Manager) VideosDir() string {
 // WaveformsDir returns the waveforms cache directory path
 func (m *Manager) WaveformsDir() string {
 	return filepath.Join(m.basePath, "waveforms")
+}
+
+// ScreenshotsDir returns the screenshots directory path
+func (m *Manager) ScreenshotsDir() string {
+	return filepath.Join(m.basePath, "screenshots")
+}
+
+// GetScreenshotPath returns the full path for a screenshot file
+func (m *Manager) GetScreenshotPath(filename string) string {
+	return filepath.Join(m.ScreenshotsDir(), filename)
 }
 
 // GetWaveformPath returns the full path for a waveform file

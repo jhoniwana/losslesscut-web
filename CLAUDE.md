@@ -17,6 +17,7 @@ LosslessCut Web Edition - A Go backend + React frontend for lossless video/audio
 - Session management (save/load projects)
 - Mobile responsive design with touch support
 - Keyboard shortcuts for efficient editing
+- Screenshot capture from video at any timestamp
 
 ## Build & Development Commands
 
@@ -100,6 +101,7 @@ backend/
 - **FFmpeg Integration**: Command-line wrapper in Go, lossless cutting with `-c copy`
 - **HTTP Range Requests**: Required for video seeking in browser
 - **State**: React hooks + useState for state management
+- **Refs for Keyboard Handlers**: Keyboard shortcuts use refs (pendingCutStartRef, segmentsRef, projectRef, durationRef) instead of state to avoid stale closures in useEffect. Always get current time from `videoRef.current.currentTime` directly, not from state.
 
 ## Keyboard Shortcuts
 
@@ -137,6 +139,9 @@ POST   /api/projects/:id/export Export/cut video
 GET    /api/operations/:id      Check export progress
 GET    /api/outputs/:filename   Download exported file
 
+POST   /api/videos/:id/screenshot  Capture screenshot at timestamp
+GET    /api/screenshots/:filename  Download screenshot
+
 POST   /api/download            Download from URL (yt-dlp)
 GET    /api/download/:id/status Check download progress
 
@@ -164,3 +169,4 @@ GET    /api/system/info         System info (FFmpeg version, etc.)
 - Use `-movflags +faststart` for web-optimized MP4
 - HTTP range requests enable video seeking without full download
 - requestAnimationFrame for smooth playback time updates
+- remember this modifications

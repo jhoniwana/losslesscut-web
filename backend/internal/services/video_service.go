@@ -106,6 +106,40 @@ func (s *VideoService) GenerateWaveform(inputPath, outputPath string) error {
 	return s.ffmpeg.GenerateWaveform(ctx, inputPath, outputPath)
 }
 
+// CaptureScreenshot captures a frame from a video at the specified timestamp
+// Returns the path to the screenshot file
+func (s *VideoService) CaptureScreenshot(videoID string, timestamp float64, quality int) (string, error) {
+	video, err := s.Get(videoID)
+	if err != nil {
+		return "", fmt.Errorf("video not found: %w", err)
+	}
+
+	// Default quality (1=best, 31=worst for JPEG)
+	if quality <= 0 || quality > 31 {
+		quality = 2 // High quality default
+	}
+
+	// Generate unique filename with timestamp
+	filename := fmt.Sprintf("%s_%.3f.jpg", videoID, timestamp)
+	outputPath := s.storage.GetScreenshotPath(filename)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err = s.ffmpeg.CaptureSnapshot(ctx, video.FilePath, outputPath, timestamp, quality)
+	if err != nil {
+		return "", fmt.Errorf("failed to capture screenshot: %w", err)
+	}
+
+	s.logger.Info("Screenshot captured",
+		zap.String("videoId", videoID),
+		zap.Float64("timestamp", timestamp),
+		zap.String("output", outputPath),
+	)
+
+	return filename, nil
+}
+
 // convertProbeToMetadata converts FFprobe result to our models
 func convertProbeToMetadata(probe *ffmpeg.ProbeResult) models.VideoMetadata {
 	metadata := models.VideoMetadata{

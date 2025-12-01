@@ -332,3 +332,51 @@ func (h *VideoHandler) Delete(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "video deleted"})
 }
+
+// ScreenshotRequest represents the request body for screenshot capture
+type ScreenshotRequest struct {
+	Timestamp float64 `json:"timestamp" binding:"required"`
+	Quality   int     `json:"quality"` // 1-31, lower is better quality
+}
+
+func (h *VideoHandler) Screenshot(c *gin.Context) {
+	videoID := c.Param("id")
+
+	var req ScreenshotRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Capture screenshot
+	filename, err := h.services.Video.CaptureScreenshot(videoID, req.Timestamp, req.Quality)
+	if err != nil {
+		h.logger.Error("Failed to capture screenshot",
+			zap.String("videoId", videoID),
+			zap.Float64("timestamp", req.Timestamp),
+			zap.Error(err),
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to capture screenshot"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"filename": filename,
+		"url":      "/api/screenshots/" + filename,
+	})
+}
+
+func (h *VideoHandler) ServeScreenshot(c *gin.Context) {
+	filename := c.Param("filename")
+	filepath := h.services.Storage.GetScreenshotPath(filename)
+
+	if !h.services.Storage.FileExists(filepath) {
+		h.logger.Warn("Screenshot not found", zap.String("filename", filename))
+		c.JSON(http.StatusNotFound, gin.H{"error": "screenshot not found"})
+		return
+	}
+
+	c.Header("Content-Type", "image/jpeg")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	c.File(filepath)
+}

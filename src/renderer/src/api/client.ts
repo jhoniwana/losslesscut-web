@@ -140,6 +140,16 @@ class ApiClient {
   getVideoStreamUrl(videoId: string): string {
     return `/api/videos/${videoId}/stream`;
   }
+
+  async captureScreenshot(videoId: string, timestamp: number, quality = 2): Promise<{ filename: string; url: string }> {
+    const response = await fetch(`/api/videos/${videoId}/screenshot`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timestamp, quality }),
+    });
+    if (!response.ok) throw new Error('Screenshot capture failed');
+    return response.json();
+  }
 }
 
 export const apiClient = new ApiClient();
