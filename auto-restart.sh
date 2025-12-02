@@ -55,6 +55,7 @@ get_pids() {
 kill_processes() {
     log "Stopping existing processes..."
     
+    # Kill by PID files first
     if [ ! -z "$BACKEND_PID" ]; then
         if ps -p "$BACKEND_PID" > /dev/null; then
             kill "$BACKEND_PID" 2>/dev/null || true
@@ -69,10 +70,17 @@ kill_processes() {
         fi
     fi
     
-    # Force kill any remaining processes
-    pkill -f "yarn dev:web" 2>/dev/null || true
+    # Force kill any remaining processes by pattern matching
+    pkill -f "yarn.*dev:web" 2>/dev/null || true
+    pkill -f "vite.*--config.*vite.config.web.ts" 2>/dev/null || true
     pkill -f "./server" 2>/dev/null || true
-    sleep 2
+    pkill -f "./lossless-cut-server" 2>/dev/null || true
+    
+    # Wait for processes to die
+    sleep 3
+    
+    # Clean up PID files
+    rm -f "$BACKEND_PID_FILE" "$FRONTEND_PID_FILE"
 }
 
 # Build backend
@@ -93,6 +101,19 @@ build_backend() {
 start_backend() {
     log "Starting backend server..."
     cd "$BACKEND_DIR"
+    
+    # Ensure no existing backend processes
+    pkill -f "./server" 2>/dev/null || true
+    pkill -f "./lossless-cut-server" 2>/dev/null || true
+    sleep 1
+    
+    # Build first
+    if ! make build > "$LOG_DIR/backend-build.log" 2>&1; then
+        error "❌ Backend build failed. Check $LOG_DIR/backend-build.log"
+        return 1
+    fi
+    
+    # Start the server
     nohup ./server > "$LOG_DIR/backend.log" 2>&1 &
     BACKEND_PID=$!
     echo "$BACKEND_PID" > "$BACKEND_PID_FILE"
@@ -103,6 +124,13 @@ start_backend() {
 start_frontend() {
     log "Starting frontend dev server..."
     cd "$FRONTEND_DIR"
+    
+    # Ensure no existing frontend processes
+    pkill -f "yarn.*dev:web" 2>/dev/null || true
+    pkill -f "vite.*--config.*vite.config.web.ts" 2>/dev/null || true
+    sleep 1
+    
+    # Start the frontend
     nohup yarn dev:web > "$LOG_DIR/frontend.log" 2>&1 &
     FRONTEND_PID=$!
     echo "$FRONTEND_PID" > "$FRONTEND_PID_FILE"
