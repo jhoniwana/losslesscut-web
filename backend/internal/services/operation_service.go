@@ -2,7 +2,10 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -154,8 +157,19 @@ func (s *OperationService) runExport(operation *models.Operation, project *model
 			}
 		}
 
+		// Handle chapters export
+		if request.ExportChapters && exportErr == nil {
+			chaptersPath := s.storage.GetOutputPath(fmt.Sprintf("%s_chapters.%s", outputName, request.ChaptersFormat))
+			err := s.exportChapters(ctx, chaptersPath, segments)
+			if err != nil {
+				exportErr = err
+			} else {
+				outputFiles = append(outputFiles, chaptersPath)
+			}
+		}
+
 		// If neither merge nor separate was specified, default to merge
-		if !request.MergeSegments && !request.ExportSeparate {
+		if !request.MergeSegments && !request.ExportSeparate && !request.ExportChapters {
 			mergedPath := s.storage.GetOutputPath(fmt.Sprintf("%s.%s", outputName, format))
 			exportErr = s.exportMergedSegments(ctx, inputPath, mergedPath, segments, onProgress)
 			if exportErr == nil {
@@ -249,6 +263,108 @@ func (s *OperationService) exportMultipleSegments(ctx context.Context, inputPath
 	}
 
 	return outputFiles, nil
+}
+
+// exportChapters exports segments as chapter file
+func (s *OperationService) exportChapters(ctx context.Context, outputPath string, segments []models.Segment) error {
+	var content string
+
+	switch {
+	case strings.HasSuffix(outputPath, ".txt"):
+		content = s.generateChaptersTXT(segments)
+	case strings.HasSuffix(outputPath, ".xml"):
+		content = s.generateChaptersXML(segments)
+	case strings.HasSuffix(outputPath, ".json"):
+		content = s.generateChaptersJSON(segments)
+	default:
+		return fmt.Errorf("unsupported chapters format")
+	}
+
+	return os.WriteFile(outputPath, []byte(content), 0644)
+}
+
+// generateChaptersTXT creates chapters in simple text format
+func (s *OperationService) generateChaptersTXT(segments []models.Segment) string {
+	var content strings.Builder
+	for i, seg := range segments {
+		end := seg.Start + 60.0
+		if seg.End != nil {
+			end = *seg.End
+		}
+
+		name := seg.Name
+		if name == "" {
+			name = fmt.Sprintf("Chapter %d", i+1)
+		}
+
+		content.WriteString(fmt.Sprintf("%s\n", name))
+		content.WriteString(fmt.Sprintf("00:%02d:%02d:%02d.%03d\n",
+			int(seg.Start)/3600, (int(seg.Start)%3600)/60, int(seg.Start)%60, int((seg.Start-float64(int(seg.Start)))*1000)))
+		content.WriteString(fmt.Sprintf("00:%02d:%02d:%02d.%03d\n\n",
+			int(end)/3600, (int(end)%3600)/60, int(end)%60, int((end-float64(int(end)))*1000)))
+	}
+	return content.String()
+}
+
+// generateChaptersXML creates chapters in XML format (FFmpeg metadata)
+func (s *OperationService) generateChaptersXML(segments []models.Segment) string {
+	var content strings.Builder
+	content.WriteString(`<?xml version="1.0" encoding="UTF-8"?>
+<chapters>
+`)
+
+	for i, seg := range segments {
+		end := seg.Start + 60.0
+		if seg.End != nil {
+			end = *seg.End
+		}
+
+		name := seg.Name
+		if name == "" {
+			name = fmt.Sprintf("Chapter %d", i+1)
+		}
+
+		content.WriteString(fmt.Sprintf(`  <chapter>
+    <start>%f</start>
+    <end>%f</end>
+    <title>%s</title>
+  </chapter>
+`, seg.Start, end, name))
+	}
+
+	content.WriteString(`</chapters>`)
+	return content.String()
+}
+
+// generateChaptersJSON creates chapters in JSON format
+func (s *OperationService) generateChaptersJSON(segments []models.Segment) string {
+	type Chapter struct {
+		Start float64 `json:"start"`
+		End   float64 `json:"end"`
+		Name  string  `json:"name"`
+	}
+
+	var chapters []Chapter
+	for i, seg := range segments {
+		end := seg.Start + 60.0
+		if seg.End != nil {
+			end = *seg.End
+		}
+
+		name := seg.Name
+		if name == "" {
+			name = fmt.Sprintf("Chapter %d", i+1)
+		}
+
+		chapters = append(chapters, Chapter{
+			Start: seg.Start,
+			End:   end,
+			Name:  name,
+		})
+	}
+
+	data, _ := json.MarshalIndent(chapters, "", "  ")
+	return string(data)
 }
 
 func (s *OperationService) GetStatus(operationID string) (*models.Operation, error) {

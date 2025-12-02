@@ -1,20 +1,71 @@
-import { ButtonHTMLAttributes, DetailedHTMLProps, forwardRef } from 'react';
-
+import { memo, forwardRef, ButtonHTMLAttributes, DetailedHTMLProps } from 'react';
+import { motion } from 'framer-motion';
 import styles from './Button.module.css';
-import { primaryColor, primaryTextColor } from '../colors';
 
-export type ButtonProps = DetailedHTMLProps<ButtonHTMLAttributes<HTMLButtonElement>, HTMLButtonElement>;
+export interface ButtonProps extends DetailedHTMLProps<ButtonHTMLAttributes<HTMLButtonElement>, HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
+  size?: 'small' | 'medium' | 'large';
+  loading?: boolean;
+  icon?: React.ReactNode;
+  iconPosition?: 'left' | 'right';
+  darkMode?: boolean;
+}
 
-// eslint-disable-next-line react/display-name
-const Button = forwardRef<HTMLButtonElement, ButtonProps>(({ type = 'button', className, ...props }, ref) => (
-  // eslint-disable-next-line react/jsx-props-no-spreading, react/button-has-type
-  <button ref={ref} className={[...(className ? [className] : []), styles['button']].join(' ')} type={type} {...props} />
-));
+const Button = memo(forwardRef<HTMLButtonElement, ButtonProps>(({
+  className = '',
+  variant = 'primary',
+  size = 'medium',
+  loading = false,
+  icon,
+  iconPosition = 'left',
+  darkMode = false,
+  children,
+  disabled,
+  ...props
+}, ref) => {
+  const buttonClasses = [
+    styles.button,
+    styles[variant],
+    styles[size],
+    loading && styles.loading,
+    icon && iconPosition && styles.withIcon,
+    darkMode && styles.dark,
+    className
+  ].filter(Boolean).join(' ');
+
+  return (
+    <motion.button
+      className={buttonClasses}
+      disabled={disabled || loading}
+      ref={ref}
+      whileHover={{ scale: loading ? 1 : 1.02 }}
+      whileTap={{ scale: loading ? 1 : 0.95 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+      {...props}
+    >
+      {loading && (
+        <motion.div
+          className={styles.spinner}
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+        />
+      )}
+      
+      {icon && iconPosition === 'left' && (
+        <span className={styles.iconLeft}>{icon}</span>
+      )}
+      
+      {children && (
+        <span className={styles.text}>{children}</span>
+      )}
+      
+      {icon && iconPosition === 'right' && (
+        <span className={styles.iconRight}>{icon}</span>
+      )}
+    </motion.button>
+  );
+});
+
+Button.displayName = 'Button';
 
 export default Button;
-
-// eslint-disable-next-line react/display-name
-export const DialogButton = forwardRef<HTMLButtonElement, { primary?: boolean } & ButtonProps>(({ primary, ...props }, ref) => (
-  // eslint-disable-next-line react/jsx-props-no-spreading
-  <Button ref={ref} style={{ padding: '.5em 2em', ...(primary && { color: 'white', backgroundColor: primaryColor, borderColor: primaryTextColor }) }} {...props} />
-));

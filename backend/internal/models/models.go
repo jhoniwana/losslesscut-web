@@ -44,24 +44,24 @@ type Video struct {
 
 // VideoMetadata contains FFprobe metadata
 type VideoMetadata struct {
-	Streams  []Stream `json:"streams"`
-	Format   Format   `json:"format"`
+	Streams  []Stream  `json:"streams"`
+	Format   Format    `json:"format"`
 	Chapters []Chapter `json:"chapters,omitempty"`
 }
 
 // Stream represents a media stream
 type Stream struct {
-	Index         int     `json:"index"`
-	CodecType     string  `json:"codec_type"`
-	CodecName     string  `json:"codec_name"`
-	Width         int     `json:"width,omitempty"`
-	Height        int     `json:"height,omitempty"`
-	Duration      float64 `json:"duration,omitempty"`
-	BitRate       int64   `json:"bit_rate,omitempty"`
-	SampleRate    int     `json:"sample_rate,omitempty"`
-	Channels      int     `json:"channels,omitempty"`
-	Language      string  `json:"language,omitempty"`
-	Title         string  `json:"title,omitempty"`
+	Index      int     `json:"index"`
+	CodecType  string  `json:"codec_type"`
+	CodecName  string  `json:"codec_name"`
+	Width      int     `json:"width,omitempty"`
+	Height     int     `json:"height,omitempty"`
+	Duration   float64 `json:"duration,omitempty"`
+	BitRate    int64   `json:"bit_rate,omitempty"`
+	SampleRate int     `json:"sample_rate,omitempty"`
+	Channels   int     `json:"channels,omitempty"`
+	Language   string  `json:"language,omitempty"`
+	Title      string  `json:"title,omitempty"`
 }
 
 // Format represents the container format
@@ -134,6 +134,8 @@ type ExportRequest struct {
 	SegmentIDs     []string `json:"segment_ids,omitempty"` // If empty, export all
 	MergeSegments  bool     `json:"merge_segments,omitempty"`
 	ExportSeparate bool     `json:"export_separate,omitempty"` // Export each segment as separate file
+	ExportChapters bool     `json:"export_chapters,omitempty"` // Export segments as chapters
+	ChaptersFormat string   `json:"chapters_format,omitempty"` // "txt", "xml", "json"
 }
 
 // Download represents a video download from URL

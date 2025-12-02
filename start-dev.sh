@@ -1,27 +1,74 @@
 #!/bin/bash
 
-# Exit immediately if a command exits with a non-zero status.
+# Development script for LosslessCut Web
+# Starts both Go backend (with hot reload) and React frontend (with hot reload)
+
 set -e
 
-# Install frontend dependencies
-echo "Installing frontend dependencies with Yarn..."
-yarn install
+echo "🚀 Starting LosslessCut Web development environment..."
 
-echo "Building and starting backend server in the background..."
-# Run backend in a subshell in the background
-(cd backend && make build && make run) &
-backend_pid=$!
+# Function to cleanup background processes
+cleanup() {
+    echo "🛑 Shutting down development servers..."
+    jobs -p | xargs -r kill
+    exit 0
+}
 
-echo "Backend server started with PID: $backend_pid"
-echo "You can stop it later using 'kill $backend_pid'"
+# Set up signal handlers
+trap cleanup SIGINT SIGTERM
 
-# Wait a few seconds for the backend to initialize
-sleep 5
+# Check if required tools are installed
+if ! command -v air &> /dev/null; then
+    echo "❌ 'air' is not installed. Please install it with: go install github.com/cosmtrek/air@latest"
+    exit 1
+fi
 
-echo "Starting frontend development server in the foreground..."
-echo "Frontend will be available at http://localhost:3001"
-yarn dev:web
+if ! command -v yarn &> /dev/null; then
+    echo "❌ 'yarn' is not installed. Please install it first."
+    exit 1
+fi
 
-# When yarn dev:web is stopped (e.g., with Ctrl+C), kill the backend process
-echo "Stopping backend server..."
-kill $backend_pid
+# Install dependencies if needed
+if [ ! -d "node_modules" ]; then
+    echo "📦 Installing frontend dependencies..."
+    yarn install
+fi
+
+# Check Go dependencies
+echo "📦 Checking Go dependencies..."
+cd backend
+if [ ! -f "go.mod" ] || [ ! -d "vendor" ]; then
+    echo "📦 Installing Go dependencies..."
+    go mod download
+    go mod tidy
+fi
+
+cd ..
+
+# Start Go backend with hot reload
+echo "🔧 Starting Go backend with hot reload (port 8080)..."
+cd backend
+air &
+BACKEND_PID=$!
+cd ..
+
+# Wait a moment for backend to start
+sleep 2
+
+# Start React frontend with hot reload
+echo "⚛️ Starting React frontend with hot reload (port 3001)..."
+yarn dev:web &
+FRONTEND_PID=$!
+
+echo ""
+echo "✅ Development environment is ready!"
+echo ""
+echo "🌐 Frontend: http://localhost:3001"
+echo "🔧 Backend API: http://localhost:8080"
+echo "📖 API Docs: http://localhost:8080/api/system/info"
+echo ""
+echo "Press Ctrl+C to stop all servers"
+echo ""
+
+# Wait for any process to exit
+wait

@@ -91,7 +91,7 @@ func (h *VideoHandler) Stream(c *gin.Context) {
 	videoID := c.Param("id")
 
 	// Get video metadata
-	video, err := h.services.Video.Get(videoID)
+	video, err := h.services.Video.GetVideo(videoID)
 	if err != nil {
 		h.logger.Error("Video not found", zap.String("id", videoID), zap.Error(err))
 		c.JSON(http.StatusNotFound, gin.H{"error": "video not found"})
@@ -289,42 +289,24 @@ func getContentType(filePath string) string {
 func (h *VideoHandler) Waveform(c *gin.Context) {
 	videoID := c.Param("id")
 
-	// Get video metadata
-	video, err := h.services.Video.Get(videoID)
+	// Generate waveform
+	waveformPath, err := h.services.Video.GenerateWaveform(videoID)
 	if err != nil {
-		h.logger.Error("Video not found", zap.String("id", videoID), zap.Error(err))
-		c.JSON(http.StatusNotFound, gin.H{"error": "video not found"})
-		return
-	}
-
-	// Check if waveform already exists in cache
-	waveformPath := h.services.Storage.GetWaveformPath(videoID + ".png")
-	if h.services.Storage.FileExists(waveformPath) {
-		c.Header("Content-Type", "image/png")
-		c.Header("Cache-Control", "public, max-age=86400") // Cache for 1 day
-		c.File(waveformPath)
-		return
-	}
-
-	// Generate waveform using FFmpeg
-	h.logger.Info("Generating waveform", zap.String("videoId", videoID))
-
-	err = h.services.Video.GenerateWaveform(video.FilePath, waveformPath)
-	if err != nil {
-		h.logger.Error("Failed to generate waveform", zap.Error(err))
+		h.logger.Error("Failed to generate waveform", zap.String("videoId", videoID), zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate waveform"})
 		return
 	}
 
+	// Serve the waveform image
 	c.Header("Content-Type", "image/png")
-	c.Header("Cache-Control", "public, max-age=86400")
+	c.Header("Cache-Control", "public, max-age=86400") // Cache for 1 day
 	c.File(waveformPath)
 }
 
 func (h *VideoHandler) Delete(c *gin.Context) {
 	videoID := c.Param("id")
 
-	if err := h.services.Video.Delete(videoID); err != nil {
+	if err := h.services.Video.DeleteVideo(videoID); err != nil {
 		h.logger.Error("Failed to delete video", zap.String("id", videoID), zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete video"})
 		return
@@ -349,7 +331,7 @@ func (h *VideoHandler) Screenshot(c *gin.Context) {
 	}
 
 	// Capture screenshot
-	filename, err := h.services.Video.CaptureScreenshot(videoID, req.Timestamp, req.Quality)
+	filename, err := h.services.Video.CaptureScreenshot(videoID, req.Timestamp)
 	if err != nil {
 		h.logger.Error("Failed to capture screenshot",
 			zap.String("videoId", videoID),

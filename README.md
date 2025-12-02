@@ -13,6 +13,37 @@ Web-based lossless video/audio cutting tool powered by **Go + React + FFmpeg**.
 - Session management (save/load projects)
 - Mobile responsive design
 
+## 🎨 Modern UI Enhancements (NEW)
+
+### TikTok/Instagram-Inspired Mobile Interface
+- **Modern Mobile Timeline**: Vertical layout with TikTok-style colors and glassmorphism effects
+- **Social Media Design**: Dark theme with vibrant gradients (`#fe2c55`, `#25f4ee`)
+- **Touch-Optimized Controls**: Swipe gestures and mobile-friendly interactions
+- **Visual Feedback**: Smooth animations and micro-interactions
+
+### Advanced Visual Timeline
+- **Thumbnail Generation**: Automatic thumbnail strips for visual timeline navigation
+- **Waveform Integration**: Audio visualization with modern styling
+- **Drag-and-Drop**: Touch-enabled file management
+
+### Professional Batch Processing
+- **Multi-File Workflows**: Drag-and-drop batch processing interface
+- **Visual File Management**: Individual file controls with status indicators
+- **Batch Operations**: Merge, convert, and export multiple files simultaneously
+
+### Comprehensive Settings Panel
+- **Advanced User Preferences**: Full control over application behavior
+- **Keyboard Customization**: Configurable shortcuts and modifiers
+- **FFmpeg Integration**: Advanced export and processing options
+- **Project Management**: Auto-save and workspace preferences
+
+## Tech Stack
+
+- **Backend**: Go, Gin, FFmpeg, yt-dlp
+- **Frontend**: React 18, TypeScript, Vite, Framer Motion
+- **Mobile-First**: Responsive design optimized for touch devices
+- **Modern CSS**: CSS modules with TikTok-inspired theming
+
 ## Tech Stack
 
 - **Backend**: Go, Gin, FFmpeg, yt-dlp
