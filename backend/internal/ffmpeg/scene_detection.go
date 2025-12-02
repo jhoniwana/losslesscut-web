@@ -2,7 +2,6 @@ package ffmpeg
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strconv"
@@ -157,9 +156,9 @@ func parseSceneOutput(output string) []Scene {
 			// Parse scene information from FFmpeg log
 			parts := strings.Fields(line)
 			if len(parts) >= 4 {
-				start, err1 := strconv.ParseFloat64(parts[1], 64)
+				start, err1 := strconv.ParseFloat(parts[1], 64)
 				if err1 == nil {
-					end, err2 := strconv.ParseFloat64(parts[3], 64)
+					end, err2 := strconv.ParseFloat(parts[3], 64)
 					if err2 == nil {
 						scenes = append(scenes, Scene{
 							Start:      start,
@@ -186,7 +185,7 @@ func parseBlackSceneOutput(output string) []Scene {
 		if strings.Contains(line, "black_start:") {
 			parts := strings.Fields(line)
 			if len(parts) >= 2 {
-				if start, err := strconv.ParseFloat64(parts[1], 64); err == nil {
+				if start, err := strconv.ParseFloat(parts[1], 64); err == nil {
 					scenes = append(scenes, Scene{
 						Start:      start,
 						Type:       "black",
@@ -198,7 +197,7 @@ func parseBlackSceneOutput(output string) []Scene {
 			if len(scenes) > 0 {
 				parts := strings.Fields(line)
 				if len(parts) >= 2 {
-					if end, err := strconv.ParseFloat64(parts[1], 64); err == nil {
+					if end, err := strconv.ParseFloat(parts[1], 64); err == nil {
 						scenes[len(scenes)-1].End = end
 						scenes[len(scenes)-1].Duration = end - scenes[len(scenes)-1].Start
 					}
@@ -219,7 +218,7 @@ func parseSilentSceneOutput(output string) []Scene {
 		if strings.Contains(line, "silence_start:") {
 			parts := strings.Fields(line)
 			if len(parts) >= 2 {
-				if start, err := strconv.ParseFloat64(parts[1], 64); err == nil {
+				if start, err := strconv.ParseFloat(parts[1], 64); err == nil {
 					scenes = append(scenes, Scene{
 						Start:      start,
 						Type:       "silent",
@@ -231,7 +230,7 @@ func parseSilentSceneOutput(output string) []Scene {
 			if len(scenes) > 0 {
 				parts := strings.Fields(line)
 				if len(parts) >= 2 {
-					if end, err := strconv.ParseFloat64(parts[1], 64); err == nil {
+					if end, err := strconv.ParseFloat(parts[1], 64); err == nil {
 						scenes[len(scenes)-1].End = end
 						scenes[len(scenes)-1].Duration = end - scenes[len(scenes)-1].Start
 					}
@@ -252,7 +251,7 @@ func parseKeyframeOutput(output string) []float64 {
 		if strings.Contains(line, ",1,") { // key_frame = 1
 			parts := strings.Split(line, ",")
 			if len(parts) >= 1 {
-				if time, err := strconv.ParseFloat64(parts[0], 64); err == nil {
+				if time, err := strconv.ParseFloat(parts[0], 64); err == nil {
 					keyframes = append(keyframes, time)
 				}
 			}

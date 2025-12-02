@@ -46,6 +46,9 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
   const [showHelp, setShowHelp] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
+  const [isDraggingTimeline, setIsDraggingTimeline] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+  const [dragStartTime, setDragStartTime] = useState(0);
 
   // Refs
   const isPlayingRef = useRef(false);
@@ -231,6 +234,58 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
     };
   }, [duration]);
 
+  // TikTok-style drag handlers
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingTimeline || !timelineRef.current || !duration) return;
+      
+      const rect = timelineRef.current.getBoundingClientRect();
+      const deltaX = e.clientX - dragStartX;
+      const deltaPercent = deltaX / rect.width;
+      const deltaTime = deltaPercent * duration;
+      
+      const newTime = Math.max(0, Math.min(duration, dragStartTime + deltaTime));
+      if (videoRef.current) videoRef.current.currentTime = newTime;
+      setCurrentTime(newTime);
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingTimeline(false);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isDraggingTimeline || !timelineRef.current || !duration) return;
+      
+      const touch = e.touches[0];
+      const rect = timelineRef.current.getBoundingClientRect();
+      const deltaX = touch.clientX - dragStartX;
+      const deltaPercent = deltaX / rect.width;
+      const deltaTime = deltaPercent * duration;
+      
+      const newTime = Math.max(0, Math.min(duration, dragStartTime + deltaTime));
+      if (videoRef.current) videoRef.current.currentTime = newTime;
+      setCurrentTime(newTime);
+    };
+
+    const handleTouchEnd = () => {
+      setIsDraggingTimeline(false);
+    };
+
+    if (isDraggingTimeline) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleTouchMove, { passive: false });
+      window.addEventListener('touchend', handleTouchEnd);
+      
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+        window.removeEventListener('touchmove', handleTouchMove);
+        window.removeEventListener('touchend', handleTouchEnd);
+      };
+    }
+  }, [isDraggingTimeline, dragStartX, dragStartTime, duration]);
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -355,11 +410,17 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
   const startTimeline = (e: React.MouseEvent | React.TouchEvent) => {
     if (!timelineRef.current || !duration) return;
     e.preventDefault();
-    isSeekingRef.current = true;
-    setIsSeeking(true);
+    
     const rect = timelineRef.current.getBoundingClientRect();
     const x = ('touches' in e ? e.touches[0].clientX : e.clientX) - rect.left;
     const time = Math.max(0, Math.min(1, x / rect.width)) * duration;
+    
+    // Start TikTok-style drag
+    setIsDraggingTimeline(true);
+    setDragStartX('touches' in e ? e.touches[0].clientX : e.clientX);
+    setDragStartTime(currentTime);
+    
+    // Also seek to initial position
     if (videoRef.current) videoRef.current.currentTime = time;
     setCurrentTime(time);
   };
@@ -559,8 +620,10 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                 onTouchStart={startTimeline}
                 style={{
                   position: 'relative', height: isMobile ? '48px' : '56px',
-                  background: colors.card, borderRadius: '12px', cursor: 'pointer',
+                  background: colors.card, borderRadius: '12px', 
+                  cursor: isDraggingTimeline ? 'grabbing' : 'grab',
                   overflow: 'hidden', touchAction: 'none',
+                  userSelect: 'none',
                 }}
               >
                 {waveformUrl && (
@@ -598,13 +661,21 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                 {/* Playhead */}
                 <div style={{
                   position: 'absolute', left: `${(currentTime / duration) * 100}%`,
-                  top: 0, bottom: 0, width: '3px',
-                  background: colors.danger, borderRadius: '2px', zIndex: 10,
-                  boxShadow: `0 0 8px ${colors.danger}`,
+                  top: 0, bottom: 0, width: isDraggingTimeline ? '4px' : '3px',
+                  background: isDraggingTimeline ? colors.primary : colors.danger, 
+                  borderRadius: '2px', zIndex: 10,
+                  boxShadow: `0 0 ${isDraggingTimeline ? '12px' : '8px'} ${isDraggingTimeline ? colors.primary : colors.danger}`,
+                  transition: isDraggingTimeline ? 'none' : 'all 0.1s ease',
+                  cursor: isDraggingTimeline ? 'grabbing' : 'grab',
                 }}>
                   <div style={{
-                    position: 'absolute', top: '-3px', left: '-5px',
-                    width: '13px', height: '13px', background: colors.danger, borderRadius: '50%',
+                    position: 'absolute', top: '-4px', left: isDraggingTimeline ? '-6px' : '-5px',
+                    width: isDraggingTimeline ? '16px' : '13px', 
+                    height: isDraggingTimeline ? '16px' : '13px', 
+                    background: isDraggingTimeline ? colors.primary : colors.danger, 
+                    borderRadius: '50%',
+                    border: isDraggingTimeline ? '2px solid white' : 'none',
+                    transition: isDraggingTimeline ? 'none' : 'all 0.1s ease',
                   }} />
                 </div>
 
@@ -701,16 +772,15 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
               {/* Export */}
               {segments.length > 0 && (
                 <div style={{ display: 'flex', gap: '10px' }}>
-                  {currentOperation?.status === 'completed' ? (
+                  {currentOperation?.status === 'completed' && (
                     <button onClick={handleDownload} style={btn(colors.primary)}>
                       <IoMdDownload size={20} /> Download Video
                     </button>
-                  ) : (
-                    <button onClick={handleExport} disabled={isExporting} style={{ ...btn(colors.primary), opacity: isExporting ? 0.7 : 1 }}>
-                      <IoMdDownload size={20} />
-                      {isExporting ? `Exporting ${Math.round(exportProgress)}%...` : `Export ${selectedCount} Clip${selectedCount !== 1 ? 's' : ''}`}
-                    </button>
                   )}
+                  <button onClick={handleExport} disabled={isExporting} style={{ ...btn(colors.primary), opacity: isExporting ? 0.7 : 1 }}>
+                    <IoMdDownload size={20} />
+                    {isExporting ? `Exporting ${Math.round(exportProgress)}%...` : `Export ${selectedCount} Clip${selectedCount !== 1 ? 's' : ''}`}
+                  </button>
                 </div>
               )}
             </div>

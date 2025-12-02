@@ -21,15 +21,15 @@ export default defineConfig({
 
   server: {
     port: 3001,
-    host: '127.0.0.1',
+    host: '0.0.0.0',
     proxy: {
       // Proxy API requests to Go backend during development
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://72.61.7.86:8080',
         changeOrigin: true,
       },
       '/ws': {
-        target: 'ws://localhost:8080',
+        target: 'ws://72.61.7.86:8080',
         ws: true,
       },
     },
