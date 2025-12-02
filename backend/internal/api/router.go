@@ -112,7 +112,7 @@ func NewRouter(services *services.Services, cfg *config.Config, logger *zap.Logg
 			operations.GET("/:id", operationHandler.GetStatus)
 		}
 
-		// Output file downloads (exported videos)
+		// Output file downloads (exported videos) - optimized with better headers
 		api.GET("/outputs/:filename", func(c *gin.Context) {
 			filename := c.Param("filename")
 			filepath := services.Storage.GetOutputPath(filename)
@@ -123,8 +123,12 @@ func NewRouter(services *services.Services, cfg *config.Config, logger *zap.Logg
 				return
 			}
 
+			// Add performance optimization headers
+			c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+			c.Header("Cache-Control", "public, max-age=3600") // Cache for 1 hour
+			c.Header("X-Content-Type-Options", "nosniff")
+
 			logger.Info("Serving output file", zap.String("filename", filename))
-			c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 			c.File(filepath)
 		})
 	}

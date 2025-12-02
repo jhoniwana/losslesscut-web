@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { IoMdPlay, IoMdPause, IoMdTrash, IoMdDownload, IoMdSkipForward, IoMdSkipBackward, IoMdCheckmark, IoMdClose, IoMdHelpCircle, IoMdCamera } from 'react-icons/io';
 import { FiUpload, FiScissors } from 'react-icons/fi';
 import { MdContentCut } from 'react-icons/md';
@@ -48,6 +48,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
 
   // Refs
+  const isPlayingRef = useRef(false);
   const isSeekingRef = useRef(false);
   const pendingCutStartRef = useRef<number | null>(null);
   const segmentsRef = useRef<Segment[]>([]);
@@ -59,6 +60,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
   useEffect(() => { segmentsRef.current = segments; }, [segments]);
   useEffect(() => { durationRef.current = duration; }, [duration]);
   useEffect(() => { projectRef.current = project; }, [project]);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
 
   // Check mobile
   useEffect(() => {
@@ -109,13 +111,11 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
           break;
         case 'arrowleft':
           e.preventDefault();
-          videoRef.current.currentTime = Math.max(0, time - (e.shiftKey ? 0.1 : 1));
-          setCurrentTime(videoRef.current.currentTime);
+          seekVideo(Math.max(0, time - (e.shiftKey ? 0.1 : 1)));
           break;
         case 'arrowright':
           e.preventDefault();
-          videoRef.current.currentTime = Math.min(durationRef.current, time + (e.shiftKey ? 0.1 : 1));
-          setCurrentTime(videoRef.current.currentTime);
+          seekVideo(Math.min(durationRef.current, time + (e.shiftKey ? 0.1 : 1)));
           break;
         case 'i':
           e.preventDefault();
@@ -153,16 +153,39 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
     return () => window.removeEventListener('keydown', handle);
   }, []);
 
-  // Time update
+  // Time update - optimized with throttling
   const animFrameRef = useRef<number | null>(null);
+  const lastUpdateTime = useRef<number>(0);
+  
+  // Optimized seek function with debouncing
+  const seekVideo = useCallback((newTime: number) => {
+    if (!videoRef.current) return;
+    
+    // Set seeking flag to prevent time update conflicts
+    isSeekingRef.current = true;
+    videoRef.current.currentTime = newTime;
+    
+    // Update state after a short delay to allow video to settle
+    setTimeout(() => {
+      setCurrentTime(newTime);
+      isSeekingRef.current = false;
+    }, 50);
+  }, []);
+  
   useEffect(() => {
     const update = () => {
-      if (videoRef.current && !isSeekingRef.current && isPlaying) {
-        setCurrentTime(videoRef.current.currentTime);
+      if (videoRef.current && !isSeekingRef.current && isPlayingRef.current) {
+        const currentTime = videoRef.current.currentTime;
+        // Throttle updates to reduce re-renders (update max 30 times per second)
+        const now = performance.now();
+        if (now - lastUpdateTime.current > 33) { // ~30fps
+          setCurrentTime(currentTime);
+          lastUpdateTime.current = now;
+        }
       }
-      if (isPlaying) animFrameRef.current = requestAnimationFrame(update);
+      if (isPlayingRef.current) animFrameRef.current = requestAnimationFrame(update);
     };
-    if (isPlaying) animFrameRef.current = requestAnimationFrame(update);
+    if (isPlayingRef.current) animFrameRef.current = requestAnimationFrame(update);
     return () => { if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current); };
   }, [isPlaying]);
 
@@ -483,10 +506,13 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                 playsInline
                 style={{ maxWidth: '100%', maxHeight: '100%' }}
                 onLoadedMetadata={() => videoRef.current && setDuration(videoRef.current.duration)}
-                onTimeUpdate={() => !isSeekingRef.current && !isPlaying && videoRef.current && setCurrentTime(videoRef.current.currentTime)}
+                onTimeUpdate={() => !isSeekingRef.current && !isPlayingRef.current && videoRef.current && setCurrentTime(videoRef.current.currentTime)}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
                 onClick={() => videoRef.current && (videoRef.current.paused ? videoRef.current.play() : videoRef.current.pause())}
+                // Performance optimizations
+                preload="metadata"
+                crossOrigin="anonymous"
               />
 
               {/* Time badge */}
@@ -594,8 +620,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                 {/* Back 10s */}
                 <button onClick={() => {
                   if (videoRef.current) {
-                    videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 10);
-                    setCurrentTime(videoRef.current.currentTime);
+                    seekVideo(Math.max(0, videoRef.current.currentTime - 10));
                   }
                 }} style={iconBtn} title="-10s">
                   <IoMdSkipBackward size={20} />
@@ -613,8 +638,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                 {/* Forward 10s */}
                 <button onClick={() => {
                   if (videoRef.current) {
-                    videoRef.current.currentTime = Math.min(duration, videoRef.current.currentTime + 10);
-                    setCurrentTime(videoRef.current.currentTime);
+                    seekVideo(Math.min(duration, videoRef.current.currentTime + 10));
                   }
                 }} style={iconBtn} title="+10s">
                   <IoMdSkipForward size={20} />
