@@ -310,6 +310,8 @@ func (s *OperationService) exportMergedSegments(ctx context.Context, inputPath, 
 	if err := os.MkdirAll(s.storage.TempDir(), 0755); err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
+
+
 	// Cut each segment to temp files
 	tempFiles := make([]string, len(segments))
 
