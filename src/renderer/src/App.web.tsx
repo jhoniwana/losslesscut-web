@@ -20,24 +20,24 @@ import { IoMdCloudDownload } from 'react-icons/io';
 import VideoEditor from './components/VideoEditor';
 import MultiSourceEditor from './components/MultiSourceEditor';
 
-// Import Gemstone Inc logo
-import gemstonelogo from './assets/logo.png';
+// Neobrutalism design system
+import neoBrutalism from './styles/neobrutalism';
 
 const generateSessionId = () => 'sess_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
 
-// Gemstone Inc inspired colors
+// Neobrutal colors - Bold and vibrant
 const colors = {
-  bg: '#0a0a0f',
-  surface: '#12121a',
-  card: '#1a1a24',
-  border: '#2a2a3a',
-  primary: '#00E5FF',
-  secondary: '#FF148A',
-  accent: '#FFC800',
-  danger: '#ff4466',
-  success: '#00FF88',
-  text: '#ffffff',
-  textSecondary: '#b0b0c0',
+  bg: neoBrutalism.colors.background,
+  surface: neoBrutalism.colors.surface,
+  card: neoBrutalism.colors.surface,
+  border: neoBrutalism.colors.border,
+  primary: neoBrutalism.colors.primary,
+  secondary: neoBrutalism.colors.secondary,
+  accent: neoBrutalism.colors.accent,
+  danger: neoBrutalism.colors.error,
+  success: neoBrutalism.colors.success,
+  text: neoBrutalism.colors.text.primary,
+  textSecondary: neoBrutalism.colors.text.secondary,
   textMuted: '#606070',
   gradient: 'linear-gradient(135deg, #00E5FF 0%, #FF148A 100%)',
   gradientAccent: 'linear-gradient(135deg, #FF148A 0%, #FFC800 100%)',
@@ -328,20 +328,27 @@ export default function App() {
       }}>
         <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <img
-              src={gemstonelogo}
-              alt="Gemstone Inc"
-              style={{
-                height: '48px',
-                width: 'auto',
-                filter: 'drop-shadow(0 2px 8px rgba(0, 229, 255, 0.3))',
-              }}
-            />
+            <div style={{
+              backgroundColor: colors.primary,
+              border: `4px solid ${colors.text}`,
+              padding: '12px 20px',
+              boxShadow: `6px 6px 0px ${colors.text}`,
+            }}>
+              <span style={{
+                fontSize: '28px',
+                fontWeight: '900',
+                color: colors.text,
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
+              }}>
+                LC
+              </span>
+            </div>
             <div>
               <h1 style={{
                 margin: 0,
                 fontSize: '18px',
-                fontWeight: '600',
+                fontWeight: '900',
                 color: colors.textSecondary,
               }}>
                 Video Studio
@@ -390,22 +397,22 @@ export default function App() {
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
           <div style={{
             marginBottom: '24px',
-            padding: '16px',
-            background: `linear-gradient(145deg, rgba(26, 26, 36, 0.6) 0%, rgba(18, 18, 26, 0.8) 100%)`,
-            borderRadius: '20px',
+            padding: '24px 40px',
+            backgroundColor: colors.primary,
             display: 'inline-block',
-            border: `1px solid ${colors.border}`,
-            boxShadow: '0 8px 40px rgba(0, 229, 255, 0.15)',
+            border: `6px solid ${colors.text}`,
+            boxShadow: `12px 12px 0px ${colors.text}`,
           }}>
-            <img
-              src={gemstonelogo}
-              alt="Gemstone Inc"
-              style={{
-                height: '70px',
-                width: 'auto',
-                filter: 'drop-shadow(0 4px 12px rgba(0, 229, 255, 0.4))',
-              }}
-            />
+            <span style={{
+              fontSize: '64px',
+              fontWeight: '900',
+              color: colors.text,
+              textTransform: 'uppercase',
+              letterSpacing: '2px',
+              fontFamily: neoBrutalism.typography.fontFamily.base,
+            }}>
+              LC
+            </span>
           </div>
           <h2 style={{
             color: colors.text,
@@ -665,7 +672,7 @@ export default function App() {
           margin: 0,
         }}>
           Powered by <span style={{ color: colors.primary }}>FFmpeg</span> •
-          <span style={{ color: colors.secondary }}> Gemstone Inc</span>
+          <span style={{ color: colors.secondary }}> LosslessCut</span>
         </p>
       </footer>
 
