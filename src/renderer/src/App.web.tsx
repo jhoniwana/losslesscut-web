@@ -25,22 +25,20 @@ import neoBrutalism from './styles/neobrutalism';
 
 const generateSessionId = () => 'sess_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
 
-// Neobrutal colors - Bold and vibrant
+// Material Design 3 colors - Clean and modern
 const colors = {
   bg: neoBrutalism.colors.background,
   surface: neoBrutalism.colors.surface,
-  card: neoBrutalism.colors.surface,
-  border: neoBrutalism.colors.border,
+  card: neoBrutalism.colors.surfaceContainer,
+  border: neoBrutalism.colors.outlineVariant,
   primary: neoBrutalism.colors.primary,
   secondary: neoBrutalism.colors.secondary,
-  accent: neoBrutalism.colors.accent,
+  accent: neoBrutalism.colors.tertiary,
   danger: neoBrutalism.colors.error,
   success: neoBrutalism.colors.success,
   text: neoBrutalism.colors.text.primary,
   textSecondary: neoBrutalism.colors.text.secondary,
-  textMuted: '#606070',
-  gradient: 'linear-gradient(135deg, #00E5FF 0%, #FF148A 100%)',
-  gradientAccent: 'linear-gradient(135deg, #FF148A 0%, #FFC800 100%)',
+  textMuted: neoBrutalism.colors.text.tertiary,
 };
 
 interface VideoFile {
@@ -313,26 +311,27 @@ export default function App() {
 
   return (
     <div style={{
-      background: `radial-gradient(ellipse at 50% 0%, ${colors.surface} 0%, ${colors.bg} 70%)`,
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      background: colors.bg,
+      fontFamily: neoBrutalism.typography.fontFamily.base,
       minHeight: '100vh',
       display: 'flex',
       flexDirection: 'column',
     }}>
-      {/* Header - Gemstone Style */}
+      {/* Header - Material Design 3 */}
       <header style={{
-        background: `linear-gradient(180deg, ${colors.surface} 0%, ${colors.bg} 100%)`,
+        background: neoBrutalism.colors.surfaceContainerHigh,
         padding: '20px 24px',
-        borderBottom: `1px solid ${colors.border}`,
-        boxShadow: '0 4px 30px rgba(0, 0, 0, 0.3)',
+        borderBottom: `1px solid ${neoBrutalism.colors.outline}`,
+        boxShadow: neoBrutalism.elevation.level1.shadow,
       }}>
         <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div style={{
               backgroundColor: colors.primary,
-              border: `4px solid ${colors.text}`,
+              border: `1px solid ${neoBrutalism.colors.outline}`,
               padding: '12px 20px',
-              boxShadow: `6px 6px 0px ${colors.text}`,
+              boxShadow: neoBrutalism.elevation.level1.shadow,
+              borderRadius: neoBrutalism.shape.medium,
             }}>
               <span style={{
                 fontSize: '28px',
@@ -361,18 +360,18 @@ export default function App() {
           <button
             onClick={() => setShowTutorial(true)}
             style={{
-              background: `linear-gradient(145deg, ${colors.card} 0%, ${colors.surface} 100%)`,
-              border: `1px solid ${colors.border}`,
+              background: colors.card,
+              border: `1px solid ${neoBrutalism.colors.outline}`,
               color: colors.text,
               padding: '10px 18px',
-              borderRadius: '12px',
+              borderRadius: neoBrutalism.shape.medium,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
               fontSize: '14px',
               fontWeight: '500',
-              transition: 'all 0.2s ease',
+              transition: neoBrutalism.transitions.base,
             }}
           >
             <IoMdHelpCircle size={18} color={colors.primary} />
@@ -400,8 +399,9 @@ export default function App() {
             padding: '24px 40px',
             backgroundColor: colors.primary,
             display: 'inline-block',
-            border: `6px solid ${colors.text}`,
-            boxShadow: `12px 12px 0px ${colors.text}`,
+            border: `1px solid ${neoBrutalism.colors.outline}`,
+            boxShadow: neoBrutalism.elevation.level2.shadow,
+            borderRadius: neoBrutalism.shape.large,
           }}>
             <span style={{
               fontSize: '64px',
@@ -443,14 +443,14 @@ export default function App() {
           maxWidth: '420px',
         }}>
           <motion.button
-            whileHover={{ scale: 1.02, boxShadow: '0 8px 35px rgba(0, 229, 255, 0.4)' }}
+            whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setShowEditor(true)}
             style={{
-              background: colors.gradient,
-              color: '#fff',
+              background: neoBrutalism.colors.primary,
+              color: neoBrutalism.colors.onPrimary,
               padding: '20px 32px',
-              borderRadius: '9999px',
+              borderRadius: neoBrutalism.shape.full,
               fontSize: '17px',
               fontWeight: '700',
               border: 'none',
@@ -459,8 +459,8 @@ export default function App() {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '12px',
-              boxShadow: '0 6px 25px rgba(0, 229, 255, 0.3)',
-              transition: 'box-shadow 0.2s ease',
+              boxShadow: neoBrutalism.elevation.level2.shadow,
+              transition: neoBrutalism.transitions.base,
             }}
           >
             <IoMdCloudUpload size={24} />
@@ -468,17 +468,17 @@ export default function App() {
           </motion.button>
 
           <motion.button
-            whileHover={{ scale: 1.02, boxShadow: '0 8px 35px rgba(255, 200, 0, 0.4)' }}
+            whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => {
               setFileManagerTab('download');
               setShowFileManager(true);
             }}
             style={{
-              background: colors.accent,
-              color: '#000',
+              background: neoBrutalism.colors.tertiary,
+              color: neoBrutalism.colors.onTertiary,
               padding: '20px 32px',
-              borderRadius: '9999px',
+              borderRadius: neoBrutalism.shape.full,
               fontSize: '17px',
               fontWeight: '700',
               border: 'none',
@@ -487,8 +487,8 @@ export default function App() {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '12px',
-              boxShadow: '0 6px 25px rgba(255, 200, 0, 0.3)',
-              transition: 'box-shadow 0.2s ease',
+              boxShadow: neoBrutalism.elevation.level2.shadow,
+              transition: neoBrutalism.transitions.base,
             }}
           >
             <FiLink size={22} />
@@ -496,14 +496,14 @@ export default function App() {
           </motion.button>
 
           <motion.button
-            whileHover={{ scale: 1.02, boxShadow: '0 8px 35px rgba(0, 255, 136, 0.4)' }}
+            whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setShowMultiSourceEditor(true)}
             style={{
-              background: 'linear-gradient(135deg, #00FF88 0%, #00E5FF 100%)',
-              color: '#000',
+              background: neoBrutalism.colors.success,
+              color: neoBrutalism.colors.onSuccess,
               padding: '16px 32px',
-              borderRadius: '9999px',
+              borderRadius: neoBrutalism.shape.full,
               fontSize: '15px',
               fontWeight: '600',
               border: 'none',
@@ -512,8 +512,8 @@ export default function App() {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '12px',
-              boxShadow: '0 6px 25px rgba(0, 255, 136, 0.3)',
-              transition: 'box-shadow 0.2s ease',
+              boxShadow: neoBrutalism.elevation.level1.shadow,
+              transition: neoBrutalism.transitions.base,
             }}
           >
             <IoMdFilm size={22} />
@@ -521,7 +521,7 @@ export default function App() {
           </motion.button>
 
           <motion.button
-            whileHover={{ scale: 1.02, boxShadow: '0 8px 35px rgba(255, 20, 138, 0.4)' }}
+            whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => {
               setFileManagerTab('files');
@@ -529,10 +529,10 @@ export default function App() {
               setShowFileManager(true);
             }}
             style={{
-              background: colors.gradientAccent,
-              color: '#fff',
+              background: neoBrutalism.colors.secondary,
+              color: neoBrutalism.colors.onSecondary,
               padding: '16px 32px',
-              borderRadius: '9999px',
+              borderRadius: neoBrutalism.shape.full,
               fontSize: '15px',
               fontWeight: '600',
               border: 'none',
@@ -541,8 +541,8 @@ export default function App() {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '12px',
-              boxShadow: '0 6px 25px rgba(255, 20, 138, 0.3)',
-              transition: 'box-shadow 0.2s ease',
+              boxShadow: neoBrutalism.elevation.level1.shadow,
+              transition: neoBrutalism.transitions.base,
             }}
           >
             <FiHardDrive size={22} />
@@ -565,11 +565,12 @@ export default function App() {
             { icon: <IoMdCheckmarkCircle size={24} />, label: 'Sin pérdida', color: colors.success },
           ].map((feature, i) => (
             <div key={i} style={{
-              background: `linear-gradient(145deg, ${colors.card} 0%, ${colors.surface} 100%)`,
-              border: `1px solid ${colors.border}`,
-              borderRadius: '16px',
+              background: colors.card,
+              border: `1px solid ${neoBrutalism.colors.outline}`,
+              borderRadius: neoBrutalism.shape.large,
               padding: '20px 16px',
               textAlign: 'center',
+              boxShadow: neoBrutalism.elevation.level1.shadow,
             }}>
               <div style={{ color: feature.color, marginBottom: '8px' }}>
                 {feature.icon}
@@ -585,9 +586,10 @@ export default function App() {
         <div style={{
           marginTop: '40px',
           padding: '20px 24px',
-          background: `linear-gradient(145deg, ${colors.card} 0%, ${colors.surface} 100%)`,
-          borderRadius: '16px',
-          border: `1px solid ${colors.border}`,
+          background: colors.card,
+          borderRadius: neoBrutalism.shape.large,
+          border: `1px solid ${neoBrutalism.colors.outline}`,
+          boxShadow: neoBrutalism.elevation.level1.shadow,
           width: '100%',
           maxWidth: '420px',
         }}>
@@ -702,20 +704,20 @@ export default function App() {
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={e => e.stopPropagation()}
               style={{
-                background: `linear-gradient(180deg, ${colors.card} 0%, ${colors.surface} 100%)`,
-                borderRadius: '24px',
+                background: colors.card,
+                borderRadius: neoBrutalism.shape.extraLarge,
                 padding: '0',
                 maxWidth: '700px',
                 width: '100%',
                 maxHeight: '80vh',
                 overflow: 'hidden',
-                border: `1px solid ${colors.border}`,
-                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+                border: `1px solid ${neoBrutalism.colors.outline}`,
+                boxShadow: neoBrutalism.elevation.level5.shadow,
               }}
             >
               {/* File Manager Header with Tabs */}
               <div style={{
-                background: colors.gradient,
+                background: neoBrutalism.colors.primary,
               }}>
                 <div style={{
                   padding: '16px 20px',
@@ -850,10 +852,10 @@ export default function App() {
                         disabled={isDownloading || !downloadUrl.trim()}
                         style={{
                           width: '100%',
-                          background: isDownloading ? colors.card : colors.gradient,
-                          color: '#fff',
+                          background: isDownloading ? colors.card : neoBrutalism.colors.primary,
+                          color: neoBrutalism.colors.onPrimary,
                           border: 'none',
-                          borderRadius: '9999px',
+                          borderRadius: neoBrutalism.shape.full,
                           padding: '14px 20px',
                           fontSize: '15px',
                           fontWeight: '700',
@@ -863,7 +865,7 @@ export default function App() {
                           justifyContent: 'center',
                           gap: '10px',
                           opacity: !downloadUrl.trim() ? 0.5 : 1,
-                          boxShadow: isDownloading ? 'none' : '0 4px 20px rgba(0, 229, 255, 0.3)',
+                          boxShadow: isDownloading ? 'none' : neoBrutalism.elevation.level2.shadow,
                         }}
                       >
                         {isDownloading ? (
@@ -910,14 +912,14 @@ export default function App() {
                           width: '100%',
                           height: '8px',
                           background: colors.border,
-                          borderRadius: '4px',
+                          borderRadius: neoBrutalism.shape.extraSmall,
                           overflow: 'hidden',
                         }}>
                           <div style={{
                             width: `${downloadProgress}%`,
                             height: '100%',
-                            background: colors.gradient,
-                            borderRadius: '4px',
+                            background: neoBrutalism.colors.primary,
+                            borderRadius: neoBrutalism.shape.extraSmall,
                             transition: 'width 0.3s ease',
                           }} />
                         </div>
@@ -1047,17 +1049,18 @@ export default function App() {
                       }}
                       style={{
                         marginTop: '20px',
-                        background: colors.gradient,
-                        color: '#fff',
+                        background: neoBrutalism.colors.primary,
+                        color: neoBrutalism.colors.onPrimary,
                         border: 'none',
                         padding: '12px 24px',
-                        borderRadius: '9999px',
+                        borderRadius: neoBrutalism.shape.full,
                         fontSize: '14px',
                         fontWeight: '600',
                         cursor: 'pointer',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '8px',
+                        boxShadow: neoBrutalism.elevation.level1.shadow,
                       }}
                     >
                       <FiUpload size={18} />
@@ -1070,15 +1073,16 @@ export default function App() {
                       <div
                         key={video.id}
                         style={{
-                          background: `linear-gradient(145deg, ${colors.card} 0%, ${colors.surface} 100%)`,
-                          border: `1px solid ${colors.border}`,
-                          borderRadius: '14px',
+                          background: colors.card,
+                          border: `1px solid ${neoBrutalism.colors.outline}`,
+                          borderRadius: neoBrutalism.shape.medium,
                           padding: '14px 16px',
                           display: 'flex',
                           alignItems: 'center',
                           gap: '14px',
-                          transition: 'all 0.2s ease',
+                          transition: neoBrutalism.transitions.base,
                           cursor: 'pointer',
+                          boxShadow: neoBrutalism.elevation.level1.shadow,
                         }}
                         onClick={() => openVideoInEditor(video.id)}
                       >
@@ -1086,8 +1090,8 @@ export default function App() {
                         <div style={{
                           width: '56px',
                           height: '56px',
-                          background: colors.gradient,
-                          borderRadius: '12px',
+                          background: neoBrutalism.colors.primary,
+                          borderRadius: neoBrutalism.shape.medium,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -1215,15 +1219,15 @@ export default function App() {
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={e => e.stopPropagation()}
               style={{
-                background: `linear-gradient(180deg, ${colors.card} 0%, ${colors.surface} 100%)`,
-                borderRadius: '24px',
+                background: colors.card,
+                borderRadius: neoBrutalism.shape.extraLarge,
                 padding: '28px',
                 maxWidth: '600px',
                 width: '100%',
                 maxHeight: '90vh',
                 overflowY: 'auto',
-                border: `1px solid ${colors.border}`,
-                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+                border: `1px solid ${neoBrutalism.colors.outline}`,
+                boxShadow: neoBrutalism.elevation.level5.shadow,
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -1231,8 +1235,8 @@ export default function App() {
                   <div style={{
                     width: '40px',
                     height: '40px',
-                    background: colors.gradient,
-                    borderRadius: '10px',
+                    background: neoBrutalism.colors.primary,
+                    borderRadius: neoBrutalism.shape.medium,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1278,12 +1282,12 @@ export default function App() {
                     <div style={{
                       width: '50px',
                       height: '50px',
-                      background: colors.gradient,
-                      borderRadius: '12px',
+                      background: neoBrutalism.colors.primary,
+                      borderRadius: neoBrutalism.shape.medium,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: '#fff',
+                      color: neoBrutalism.colors.onPrimary,
                       flexShrink: 0,
                     }}>
                       {step.icon}
@@ -1331,15 +1335,15 @@ export default function App() {
                 style={{
                   width: '100%',
                   marginTop: '20px',
-                  background: colors.gradient,
-                  color: '#fff',
+                  background: neoBrutalism.colors.primary,
+                  color: neoBrutalism.colors.onPrimary,
                   padding: '14px',
-                  borderRadius: '9999px',
+                  borderRadius: neoBrutalism.shape.full,
                   border: 'none',
                   fontSize: '15px',
                   fontWeight: '700',
                   cursor: 'pointer',
-                  boxShadow: '0 4px 20px rgba(0, 229, 255, 0.3)',
+                  boxShadow: neoBrutalism.elevation.level2.shadow,
                 }}
               >
                 ¡Entendido!

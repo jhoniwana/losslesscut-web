@@ -1,27 +1,28 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FiCrop, FiMove, FiX, FiZoomIn } from 'react-icons/fi';
+import neoBrutalism from '../styles/neobrutalism';
+import { FiCrop, FiMove, FiX, FiZoomIn, FiSmartphone, FiYoutube, FiInstagram, FiImage, FiSquare, FiFilm, FiMonitor, FiTool } from 'react-icons/fi';
 import { IoMdCheckmarkCircle } from 'react-icons/io';
 
-// Gemstone Inc inspired colors - Modern luxury aesthetic
+// MD3 colors from neoBrutalism theme
 const colors = {
-  bg: '#0a0a0f',
-  surface: '#12121a',
-  card: '#1a1a24',
-  border: '#2a2a3a',
-  primary: '#00E5FF',
-  secondary: '#FF148A',
-  accent: '#FFC800',
-  danger: '#ff4466',
-  text: '#ffffff',
-  textSecondary: '#b0b0c0',
-  textMuted: '#606070',
-  gradient: 'linear-gradient(135deg, #00E5FF 0%, #FF148A 100%)',
-  gradientAccent: 'linear-gradient(135deg, #FF148A 0%, #FFC800 100%)',
+  bg: neoBrutalism.colors.background,
+  surface: neoBrutalism.colors.surface,
+  card: neoBrutalism.colors.surfaceContainerHigh,
+  border: neoBrutalism.colors.outline,
+  primary: neoBrutalism.colors.primary,
+  secondary: neoBrutalism.colors.secondary,
+  accent: neoBrutalism.colors.tertiary,
+  danger: neoBrutalism.colors.error,
+  text: neoBrutalism.colors.onSurface,
+  textSecondary: neoBrutalism.colors.onSurfaceVariant,
+  textMuted: neoBrutalism.colors.onSurfaceVariant,
+  gradient: `linear-gradient(135deg, ${neoBrutalism.colors.primary} 0%, ${neoBrutalism.colors.secondary} 100%)`,
+  gradientAccent: `linear-gradient(135deg, ${neoBrutalism.colors.secondary} 0%, ${neoBrutalism.colors.tertiary} 100%)`,
 };
 
 export interface CropConfig {
   enabled: boolean;
-  preset: 'tiktok' | 'instagram' | 'youtube' | 'cinema' | 'portrait43' | 'free' | null;
+  preset: 'tiktok' | 'ytshorts' | 'igfeed' | 'instagram' | 'youtube' | 'cinema' | 'portrait43' | 'free' | null;
   x: number;
   y: number;
   width: number;
@@ -29,21 +30,23 @@ export interface CropConfig {
 }
 
 interface CropPreset {
-  id: 'tiktok' | 'instagram' | 'youtube' | 'cinema' | 'portrait43' | 'free';
+  id: 'tiktok' | 'ytshorts' | 'igfeed' | 'instagram' | 'youtube' | 'cinema' | 'portrait43' | 'free';
   name: string;
   aspectRatio: number | null;
   description: string;
-  icon: string;
+  icon: React.ComponentType<{ size?: number; color?: string }>;
   color: string;
 }
 
 const PRESETS: CropPreset[] = [
-  { id: 'tiktok', name: '9:16', aspectRatio: 9 / 16, description: 'TikTok, Reels, Shorts', icon: '◆', color: '#FF148A' },
-  { id: 'portrait43', name: '3:4', aspectRatio: 3 / 4, description: 'Retrato vertical', icon: '◇', color: '#AA66FF' },
-  { id: 'instagram', name: '1:1', aspectRatio: 1, description: 'Instagram cuadrado', icon: '◈', color: '#00E5FF' },
-  { id: 'youtube', name: '16:9', aspectRatio: 16 / 9, description: 'YouTube, TV', icon: '◆', color: '#FF4466' },
-  { id: 'cinema', name: '21:9', aspectRatio: 21 / 9, description: 'Cinematográfico', icon: '◇', color: '#FFC800' },
-  { id: 'free', name: 'Libre', aspectRatio: null, description: 'Tamaño personalizado', icon: '✦', color: colors.textMuted },
+  { id: 'tiktok', name: '9:16', aspectRatio: 9 / 16, description: 'TikTok, Reels', icon: FiSmartphone, color: neoBrutalism.colors.error },
+  { id: 'ytshorts', name: '9:16', aspectRatio: 9 / 16, description: 'YouTube Shorts', icon: FiYoutube, color: '#FF0000' },
+  { id: 'igfeed', name: '4:5', aspectRatio: 4 / 5, description: 'Instagram Feed', icon: FiInstagram, color: '#E1306C' },
+  { id: 'portrait43', name: '3:4', aspectRatio: 3 / 4, description: 'Retrato vertical', icon: FiImage, color: '#AA66FF' },
+  { id: 'instagram', name: '1:1', aspectRatio: 1, description: 'Instagram cuadrado', icon: FiSquare, color: neoBrutalism.colors.primary },
+  { id: 'youtube', name: '16:9', aspectRatio: 16 / 9, description: 'YouTube, TV', icon: FiFilm, color: '#FF4466' },
+  { id: 'cinema', name: '21:9', aspectRatio: 21 / 9, description: 'Cinematográfico', icon: FiMonitor, color: neoBrutalism.colors.tertiary },
+  { id: 'free', name: 'Libre', aspectRatio: null, description: 'Tamaño personalizado', icon: FiTool, color: neoBrutalism.colors.onSurfaceVariant },
 ];
 
 interface Props {
@@ -316,6 +319,7 @@ export default function CropSelector({ config, onChange, videoWidth, videoHeight
       }}>
         {PRESETS.map((preset) => {
           const isActive = config.preset === preset.id && config.enabled;
+          const IconComponent = preset.icon;
           return (
             <button
               key={preset.id}
@@ -333,7 +337,15 @@ export default function CropSelector({ config, onChange, videoWidth, videoHeight
                 transition: 'all 0.2s ease',
               }}
             >
-              <AspectPreview ratio={preset.aspectRatio} isActive={isActive} color={preset.color} />
+              <div style={{
+                width: '40px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <IconComponent size={24} color={isActive ? preset.color : colors.textMuted} />
+              </div>
               <div style={{
                 color: isActive ? preset.color : colors.text,
                 fontSize: '14px',
@@ -496,7 +508,7 @@ export default function CropSelector({ config, onChange, videoWidth, videoHeight
               fontSize: '10px',
               color: colors.textMuted,
             }}>
-              <span>🔍 Más zoom</span>
+              <span>Más zoom</span>
               <span>Tamaño completo</span>
             </div>
           </div>
@@ -559,7 +571,7 @@ export default function CropSelector({ config, onChange, videoWidth, videoHeight
           color: colors.textMuted,
           fontSize: '12px',
         }}>
-          👆 Selecciona un formato para comenzar
+          Selecciona un formato para comenzar
         </div>
       )}
     </div>

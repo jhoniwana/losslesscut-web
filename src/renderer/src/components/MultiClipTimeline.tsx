@@ -4,19 +4,22 @@ import { IoMdReorder } from 'react-icons/io';
 import { TimelineClip, Video } from '../api/client';
 import { SourceVideo, getSourceColor } from './SourcePanel';
 
-// Colors matching VideoEditor.tsx
+// Neobrutalism design system
+import neoBrutalism from '../styles/neobrutalism';
+
+// Neobrutal colors
 const colors = {
-  bg: '#0a0a0f',
-  surface: '#12121a',
-  card: '#1a1a24',
-  border: '#2a2a3a',
-  primary: '#00E5FF',
-  secondary: '#FF148A',
-  accent: '#FFC800',
-  danger: '#ff4466',
-  text: '#ffffff',
-  textSecondary: '#b0b0c0',
-  textMuted: '#606070',
+  bg: neoBrutalism.colors.background,
+  surface: neoBrutalism.colors.surface,
+  card: neoBrutalism.colors.surface,
+  border: neoBrutalism.colors.border,
+  primary: neoBrutalism.colors.primary,
+  secondary: neoBrutalism.colors.secondary,
+  accent: neoBrutalism.colors.accent,
+  danger: neoBrutalism.colors.error,
+  text: neoBrutalism.colors.text.primary,
+  textSecondary: neoBrutalism.colors.text.secondary,
+  textMuted: neoBrutalism.colors.text.muted,
 };
 
 interface MultiClipTimelineProps {

@@ -1,26 +1,35 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { IoMdPlay, IoMdPause, IoMdDownload, IoMdSkipForward, IoMdSkipBackward, IoMdHelpCircle, IoMdClose } from 'react-icons/io';
-import { FiUpload, FiScissors, FiChevronRight, FiChevronLeft, FiImage } from 'react-icons/fi';
+import { FiUpload, FiScissors, FiChevronRight, FiChevronLeft, FiImage, FiPlay } from 'react-icons/fi';
 import { MdPlaylistPlay } from 'react-icons/md';
 import { apiClient, Video, TimelineProject, TimelineClip, Operation, CodecCompatibility } from '../api/client';
 import SourcePanel, { SourceVideo, getSourceColor } from './SourcePanel';
 import MultiClipTimeline, { getClipAtTime } from './MultiClipTimeline';
 import WatermarkSettings, { WatermarkConfig, getDefaultWatermarkConfig } from './WatermarkSettings';
 
-// Colors matching VideoEditor.tsx
+// Neobrutalism design system
+import neoBrutalism from '../styles/neobrutalism';
+
+// Neobrutal colors - Bold, high contrast, inspired by Iguanads
 const colors = {
-  bg: '#0a0a0f',
-  surface: '#12121a',
-  card: '#1a1a24',
-  border: '#2a2a3a',
-  primary: '#00E5FF',
-  secondary: '#FF148A',
-  accent: '#FFC800',
-  danger: '#ff4466',
-  text: '#ffffff',
-  textSecondary: '#b0b0c0',
-  textMuted: '#606070',
-  gradient: 'linear-gradient(135deg, #00E5FF 0%, #FF148A 100%)',
+  bg: neoBrutalism.colors.background,
+  surface: neoBrutalism.colors.surface,
+  card: neoBrutalism.colors.surface,
+  border: neoBrutalism.colors.border,
+  primary: neoBrutalism.colors.primary,
+  secondary: neoBrutalism.colors.secondary,
+  accent: neoBrutalism.colors.accent,
+  danger: neoBrutalism.colors.error,
+  success: neoBrutalism.colors.success,
+  warning: neoBrutalism.colors.warning,
+  text: neoBrutalism.colors.text.primary,
+  textSecondary: neoBrutalism.colors.text.secondary,
+  textMuted: neoBrutalism.colors.text.muted,
+  shadow: neoBrutalism.shadows.medium,
+  shadowDeep: neoBrutalism.shadows.large,
+  // Replace gradients with solid neobrutal colors
+  gradient: neoBrutalism.colors.primary,
+  gradientAccent: neoBrutalism.colors.accent,
 };
 
 interface Props {
@@ -1671,7 +1680,7 @@ export default function MultiSourceEditor({ onClose, initialVideoId }: Props) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 24 }}>
               {/* Playback */}
               <div>
-                <h4 style={{ margin: '0 0 12px', fontSize: 14, color: colors.primary, fontWeight: 600 }}>▶️ Reproducción</h4>
+                <h4 style={{ margin: '0 0 12px', fontSize: 14, color: colors.primary, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}><FiPlay size={14} /> Reproducción</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {[
                     ['Space / K', 'Play / Pause'],
@@ -1692,7 +1701,7 @@ export default function MultiSourceEditor({ onClose, initialVideoId }: Props) {
 
               {/* Editing */}
               <div>
-                <h4 style={{ margin: '0 0 12px', fontSize: 14, color: colors.secondary, fontWeight: 600 }}>✂️ Edición</h4>
+                <h4 style={{ margin: '0 0 12px', fontSize: 14, color: colors.secondary, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}><FiScissors size={14} /> Edición</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {[
                     ['I', 'Marcar inicio de clip'],

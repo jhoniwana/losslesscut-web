@@ -16,15 +16,26 @@ type Project struct {
 	MediaFileName string    `json:"media_file_name,omitempty"`
 }
 
+// CropConfig represents crop settings for a segment
+type CropConfig struct {
+	Enabled bool    `json:"enabled"`
+	Preset  *string `json:"preset"`
+	X       int     `json:"x"`
+	Y       int     `json:"y"`
+	Width   int     `json:"width"`
+	Height  int     `json:"height"`
+}
+
 // Segment represents a time segment in a video
 type Segment struct {
-	ID       string            `json:"id"`
-	Name     string            `json:"name"`
-	Start    float64           `json:"start"`
-	End      *float64          `json:"end,omitempty"`
-	Tags     map[string]string `json:"tags,omitempty"`
-	Color    int               `json:"color,omitempty"`
-	Selected bool              `json:"selected,omitempty"`
+	ID         string            `json:"id"`
+	Name       string            `json:"name"`
+	Start      float64           `json:"start"`
+	End        *float64          `json:"end,omitempty"`
+	Tags       map[string]string `json:"tags,omitempty"`
+	Color      int               `json:"color,omitempty"`
+	Selected   bool              `json:"selected,omitempty"`
+	CropConfig *CropConfig       `json:"cropConfig,omitempty"`
 }
 
 // Video represents an uploaded or downloaded video

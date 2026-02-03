@@ -4,28 +4,31 @@ import { IoMdAdd, IoMdClose } from 'react-icons/io';
 import { MdPlaylistAdd } from 'react-icons/md';
 import { apiClient, Video } from '../api/client';
 
-// Colors matching VideoEditor.tsx
+// Neobrutalism design system
+import neoBrutalism from '../styles/neobrutalism';
+
+// Neobrutal colors
 const colors = {
-  bg: '#0a0a0f',
-  surface: '#12121a',
-  card: '#1a1a24',
-  border: '#2a2a3a',
-  primary: '#00E5FF',
-  secondary: '#FF148A',
-  accent: '#FFC800',
-  danger: '#ff4466',
-  text: '#ffffff',
-  textSecondary: '#b0b0c0',
-  textMuted: '#606070',
+  bg: neoBrutalism.colors.background,
+  surface: neoBrutalism.colors.surface,
+  card: neoBrutalism.colors.surface,
+  border: neoBrutalism.colors.border,
+  primary: neoBrutalism.colors.primary,
+  secondary: neoBrutalism.colors.secondary,
+  accent: neoBrutalism.colors.accent,
+  danger: neoBrutalism.colors.error,
+  text: neoBrutalism.colors.text.primary,
+  textSecondary: neoBrutalism.colors.text.secondary,
+  textMuted: neoBrutalism.colors.text.muted,
 };
 
-// Source colors for clips - each source gets a unique color
+// Source colors for clips - vibrant neobrutal colors
 const sourceColors = [
-  '#00E5FF', // Cyan
-  '#FF148A', // Pink
-  '#FFC800', // Yellow
-  '#00FF88', // Green
-  '#FF6B35', // Orange
+  neoBrutalism.colors.accent,      // Cyan
+  neoBrutalism.colors.error,       // Pink
+  neoBrutalism.colors.secondary,   // Yellow
+  neoBrutalism.colors.success,     // Green
+  neoBrutalism.colors.primary,     // Orange
   '#A855F7', // Purple
   '#38BDF8', // Light blue
   '#FB7185', // Light pink
@@ -80,11 +83,17 @@ export default function SourcePanel({
 
       if (fileArray.length === 1) {
         // Single file upload
-        const result = await apiClient.uploadVideo(fileArray[0]);
+        const result = await apiClient.uploadVideo(fileArray[0], (progress) => {
+          setUploadProgress(progress);
+        });
         onSourceAdd([result.video]);
       } else {
         // Batch upload
-        const result = await apiClient.batchUpload(fileArray);
+        const result = await apiClient.batchUpload(fileArray, (fileIndex, progress) => {
+          // Calculate total progress across all files
+          const totalProgress = ((fileIndex / fileArray.length) * 100) + (progress / fileArray.length);
+          setUploadProgress(Math.round(totalProgress));
+        });
         if (result.videos.length > 0) {
           onSourceAdd(result.videos);
         }

@@ -311,3 +311,91 @@ func parseSize(sizeStr string) (int64, error) {
 	_, err := fmt.Sscanf(sizeStr, "%d", &size)
 	return size, err
 }
+
+// ReplaceIntroWithImage replaces the beginning of a video with a static image
+func (s *VideoService) ReplaceIntroWithImage(ctx context.Context, videoID string, imagePath string, duration float64) (*models.Video, error) {
+	// Get original video
+	video, err := s.GetVideo(videoID)
+	if err != nil {
+		return nil, fmt.Errorf("video not found: %w", err)
+	}
+
+	// Validate duration
+	if duration <= 0 {
+		return nil, fmt.Errorf("duration must be greater than 0")
+	}
+
+	if video.Duration < duration {
+		return nil, fmt.Errorf("video duration (%.2fs) is shorter than replacement duration (%.2fs)", video.Duration, duration)
+	}
+
+	// Generate output filename
+	outputFilename := fmt.Sprintf("%s_intro_replaced.mp4", videoID)
+	outputPath := s.storage.GetVideoPath(outputFilename)
+
+	// Execute FFmpeg operation to replace intro (progress callback only takes float64)
+	err = s.ffmpeg.ReplaceIntroWithImage(
+		video.FilePath,
+		imagePath,
+		outputPath,
+		duration,
+		func(progress float64) {
+			s.logger.Info("Replace intro progress",
+				zap.String("video_id", videoID),
+				zap.Float64("progress", progress),
+			)
+		},
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to replace intro: %w", err)
+	}
+
+	// Create new video record for the result
+	newVideo := &models.Video{
+		ID:        generateVideoID(),
+		FileName:  outputFilename,
+		FilePath:  outputPath,
+		SessionID: video.SessionID,
+		CreatedAt: time.Now(),
+	}
+
+	// Get file size
+	newVideo.FileSize, err = s.storage.GetFileSize(outputPath)
+	if err != nil {
+		s.logger.Warn("Failed to get output file size", zap.Error(err))
+	}
+
+	// Extract metadata using Probe with context
+	probe, err := s.ffmpeg.Probe(ctx, outputPath)
+	if err != nil {
+		s.logger.Warn("Failed to probe output video", zap.Error(err))
+	} else if convertedMeta := convertProbeToMetadata(probe); convertedMeta != nil {
+		newVideo.Duration = convertedMeta.Format.Duration
+		newVideo.Format = convertedMeta.Format.FormatName
+		newVideo.Metadata = *convertedMeta
+		// Get first video stream info
+		for _, stream := range convertedMeta.Streams {
+			if stream.CodecType == "video" {
+				newVideo.Width = stream.Width
+				newVideo.Height = stream.Height
+				newVideo.Codec = stream.CodecName
+				break
+			}
+		}
+	}
+
+	// Save video metadata to storage (critical - without this, video won't be findable)
+	if err := s.storage.SaveVideo(newVideo); err != nil {
+		s.logger.Error("Failed to save video metadata", zap.Error(err))
+		return nil, fmt.Errorf("failed to save video metadata: %w", err)
+	}
+
+	s.logger.Info("Successfully replaced intro",
+		zap.String("original_video_id", videoID),
+		zap.String("new_video_id", newVideo.ID),
+		zap.Float64("duration_replaced", duration),
+	)
+
+	return newVideo, nil
+}

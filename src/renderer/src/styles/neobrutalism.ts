@@ -1,59 +1,310 @@
-// Neobrutalismo - Paleta de colores inspirada en Iguanads
-export const neoBrutalism = {
-  // Colores primarios - Bold y vibrantes
-  colors: {
-    background: '#FAFAF9',      // Casi blanco, ligeramente cálido
-    surface: '#FFFFFF',         // Blanco puro
-    primary: '#FF6B35',         // Naranja vibrante
-    secondary: '#FFD23F',       // Amarillo brillante
-    accent: '#00D9FF',          // Cyan eléctrico
-    success: '#00FF85',         // Verde neón
-    error: '#FF006B',           // Rosa fuerte
-    warning: '#FFB800',         // Amarillo advertencia
+// Material Design 3 - Expressive Theme
+// https://m3.material.io/styles/color/roles
 
-    // Tonos de texto
+export const neoBrutalism = {
+  // Material 3 Color System - Vibrant Purple Expressive Theme
+  colors: {
+    // Primary - Vivid Purple (Creative, Modern)
+    primary: '#7B3FF2',
+    onPrimary: '#FFFFFF',
+    primaryContainer: '#EADDFF',
+    onPrimaryContainer: '#2A0080',
+
+    // Secondary - Deep Violet (Rich accent)
+    secondary: '#9D4EDD',
+    onSecondary: '#FFFFFF',
+    secondaryContainer: '#E0AAFF',
+    onSecondaryContainer: '#3C0066',
+
+    // Tertiary - Magenta Pink (Vibrant complement)
+    tertiary: '#C77DFF',
+    onTertiary: '#FFFFFF',
+    tertiaryContainer: '#F3E5FF',
+    onTertiaryContainer: '#4A0080',
+
+    // Error colors - Vibrant Red
+    error: '#FF3B30',
+    onError: '#FFFFFF',
+    errorContainer: '#FFDAD6',
+    onErrorContainer: '#660000',
+
+    // Surface colors - Dark theme optimized
+    background: '#0A0A0F',
+    onBackground: '#E8E8F0',
+
+    surface: '#121218',
+    onSurface: '#E8E8F0',
+    surfaceVariant: '#1E1E28',
+    onSurfaceVariant: '#C4C4D0',
+
+    surfaceTint: '#7B3FF2',
+
+    // Surface container levels (MD3 Elevation with dark theme)
+    surfaceContainerLowest: '#0A0A0F',
+    surfaceContainerLow: '#16161D',
+    surfaceContainer: '#1A1A22',
+    surfaceContainerHigh: '#1E1E28',
+    surfaceContainerHighest: '#24242F',
+
+    // Inverse colors
+    inverseSurface: '#E8E8F0',
+    inverseOnSurface: '#1A1A22',
+    inversePrimary: '#5E2BB8',
+
+    // Outline - Higher contrast
+    outline: '#787885',
+    outlineVariant: '#444450',
+
+    // Scrim and shadow
+    scrim: '#000000',
+    shadow: '#000000',
+
+    // Additional semantic colors - Vibrant palette
+    success: '#00E676',
+    onSuccess: '#003820',
+    successContainer: '#C8FFD4',
+    onSuccessContainer: '#00210F',
+
+    warning: '#FFB300',
+    onWarning: '#3D2E00',
+    warningContainer: '#FFE9B3',
+    onWarningContainer: '#2A1F00',
+
+    info: '#00B8D4',
+    onInfo: '#003D47',
+    infoContainer: '#B3F0FF',
+    onInfoContainer: '#001F26',
+
+    // Text hierarchy (MD3) - Dark optimized
     text: {
-      primary: '#000000',       // Negro puro
-      secondary: '#1A1A1A',     // Negro suave
-      muted: '#666666',         // Gris medio
-      inverse: '#FFFFFF',       // Blanco
+      primary: '#FFFFFF',
+      secondary: '#B8B8C0',
+      tertiary: '#8C8C98',
+      disabled: '#5C5C68',
+      inverse: '#1A1A22',
+      muted: '#8C8C98', // Alias for tertiary
     },
 
-    // Bordes
-    border: '#000000',          // Siempre negro y grueso
-    borderLight: '#333333',     // Gris oscuro para divisores
+    // Backward compatibility aliases
+    accent: '#C77DFF', // Maps to tertiary (magenta pink)
+    bg: '#0A0A0F', // Maps to background
   },
 
-  // Sombras - Hard shadows características del neobrutalismo
-  shadows: {
-    small: '4px 4px 0px #000000',
-    medium: '6px 6px 0px #000000',
-    large: '8px 8px 0px #000000',
-    xl: '12px 12px 0px #000000',
-
-    // Sombras de color para elementos destacados
-    primarySmall: '4px 4px 0px #FF6B35',
-    primaryMedium: '6px 6px 0px #FF6B35',
-    accentSmall: '4px 4px 0px #00D9FF',
-    accentMedium: '6px 6px 0px #00D9FF',
+  // Material 3 Elevation System
+  elevation: {
+    level0: {
+      shadow: 'none',
+      tint: 0,
+    },
+    level1: {
+      shadow: '0px 1px 2px rgba(0, 0, 0, 0.3), 0px 1px 3px 1px rgba(0, 0, 0, 0.15)',
+      tint: 0.05,
+    },
+    level2: {
+      shadow: '0px 1px 2px rgba(0, 0, 0, 0.3), 0px 2px 6px 2px rgba(0, 0, 0, 0.15)',
+      tint: 0.08,
+    },
+    level3: {
+      shadow: '0px 1px 3px rgba(0, 0, 0, 0.3), 0px 4px 8px 3px rgba(0, 0, 0, 0.15)',
+      tint: 0.11,
+    },
+    level4: {
+      shadow: '0px 2px 3px rgba(0, 0, 0, 0.3), 0px 6px 10px 4px rgba(0, 0, 0, 0.15)',
+      tint: 0.12,
+    },
+    level5: {
+      shadow: '0px 4px 4px rgba(0, 0, 0, 0.3), 0px 8px 12px 6px rgba(0, 0, 0, 0.15)',
+      tint: 0.14,
+    },
   },
 
-  // Bordes gruesos
-  borders: {
-    thin: '2px solid #000000',
-    medium: '3px solid #000000',
-    thick: '4px solid #000000',
-    extraThick: '6px solid #000000',
-  },
-
-  // Radios - Mínimos o ninguno
-  radius: {
+  // Material 3 Shape System (Expressive uses more rounded corners)
+  shape: {
     none: '0px',
-    small: '4px',    // Solo para algunos casos
-    medium: '8px',   // Raramente usado
+    extraSmall: '4px',
+    small: '8px',
+    medium: '12px',
+    large: '16px',
+    extraLarge: '28px',
+    full: '9999px',
   },
 
-  // Espaciado - Generous y consistente
+  // Material 3 Typography Scale
+  typography: {
+    fontFamily: {
+      brand: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", "SF Pro", system-ui, sans-serif',
+      plain: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", "SF Pro", system-ui, sans-serif',
+      base: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", "SF Pro", system-ui, sans-serif', // Alias
+    },
+
+    // Font weights
+    fontWeight: {
+      normal: 400,
+      medium: 500,
+      semibold: 600,
+      bold: 700,
+      black: 900,
+    },
+
+    // Font sizes (backward compatibility)
+    fontSize: {
+      xs: '11px',
+      sm: '12px',
+      base: '14px',
+      md: '14px',
+      lg: '16px',
+      xl: '18px',
+      '2xl': '24px',
+      '3xl': '28px',
+    },
+
+    // Line heights (backward compatibility)
+    lineHeight: {
+      tight: '1.2',
+      normal: '1.5',
+      relaxed: '1.75',
+    },
+
+    // Display styles
+    displayLarge: {
+      fontSize: '57px',
+      lineHeight: '64px',
+      fontWeight: 400,
+      letterSpacing: '-0.25px',
+    },
+    displayMedium: {
+      fontSize: '45px',
+      lineHeight: '52px',
+      fontWeight: 400,
+      letterSpacing: '0px',
+    },
+    displaySmall: {
+      fontSize: '36px',
+      lineHeight: '44px',
+      fontWeight: 400,
+      letterSpacing: '0px',
+    },
+
+    // Headline styles
+    headlineLarge: {
+      fontSize: '32px',
+      lineHeight: '40px',
+      fontWeight: 400,
+      letterSpacing: '0px',
+    },
+    headlineMedium: {
+      fontSize: '28px',
+      lineHeight: '36px',
+      fontWeight: 400,
+      letterSpacing: '0px',
+    },
+    headlineSmall: {
+      fontSize: '24px',
+      lineHeight: '32px',
+      fontWeight: 400,
+      letterSpacing: '0px',
+    },
+
+    // Title styles
+    titleLarge: {
+      fontSize: '22px',
+      lineHeight: '28px',
+      fontWeight: 400,
+      letterSpacing: '0px',
+    },
+    titleMedium: {
+      fontSize: '16px',
+      lineHeight: '24px',
+      fontWeight: 500,
+      letterSpacing: '0.15px',
+    },
+    titleSmall: {
+      fontSize: '14px',
+      lineHeight: '20px',
+      fontWeight: 500,
+      letterSpacing: '0.1px',
+    },
+
+    // Body styles
+    bodyLarge: {
+      fontSize: '16px',
+      lineHeight: '24px',
+      fontWeight: 400,
+      letterSpacing: '0.5px',
+    },
+    bodyMedium: {
+      fontSize: '14px',
+      lineHeight: '20px',
+      fontWeight: 400,
+      letterSpacing: '0.25px',
+    },
+    bodySmall: {
+      fontSize: '12px',
+      lineHeight: '16px',
+      fontWeight: 400,
+      letterSpacing: '0.4px',
+    },
+
+    // Label styles
+    labelLarge: {
+      fontSize: '14px',
+      lineHeight: '20px',
+      fontWeight: 500,
+      letterSpacing: '0.1px',
+    },
+    labelMedium: {
+      fontSize: '12px',
+      lineHeight: '16px',
+      fontWeight: 500,
+      letterSpacing: '0.5px',
+    },
+    labelSmall: {
+      fontSize: '11px',
+      lineHeight: '16px',
+      fontWeight: 500,
+      letterSpacing: '0.5px',
+    },
+  },
+
+  // Material 3 Motion System
+  motion: {
+    duration: {
+      short1: '50ms',
+      short2: '100ms',
+      short3: '150ms',
+      short4: '200ms',
+      medium1: '250ms',
+      medium2: '300ms',
+      medium3: '350ms',
+      medium4: '400ms',
+      long1: '450ms',
+      long2: '500ms',
+      long3: '550ms',
+      long4: '600ms',
+      extraLong1: '700ms',
+      extraLong2: '800ms',
+      extraLong3: '900ms',
+      extraLong4: '1000ms',
+    },
+    easing: {
+      standard: 'cubic-bezier(0.2, 0.0, 0, 1.0)',
+      standardAccelerate: 'cubic-bezier(0.3, 0.0, 1, 1)',
+      standardDecelerate: 'cubic-bezier(0, 0.0, 0, 1)',
+      emphasized: 'cubic-bezier(0.2, 0.0, 0, 1.0)',
+      emphasizedAccelerate: 'cubic-bezier(0.3, 0.0, 0.8, 0.15)',
+      emphasizedDecelerate: 'cubic-bezier(0.05, 0.7, 0.1, 1.0)',
+    },
+  },
+
+  // Material 3 State Layers (interaction states)
+  states: {
+    hover: 0.08,
+    focus: 0.12,
+    pressed: 0.12,
+    dragged: 0.16,
+  },
+
+  // Spacing system (8dp grid)
   spacing: {
     xs: '4px',
     sm: '8px',
@@ -64,116 +315,147 @@ export const neoBrutalism = {
     xxxl: '48px',
   },
 
-  // Tipografía - Bold, sans-serif, alta legibilidad
-  typography: {
-    fontFamily: {
-      base: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      mono: '"SF Mono", Monaco, "Cascadia Code", "Courier New", monospace',
-    },
-    fontSize: {
-      xs: '12px',
-      sm: '14px',
-      base: '16px',
-      lg: '18px',
-      xl: '20px',
-      '2xl': '24px',
-      '3xl': '32px',
-      '4xl': '40px',
-      '5xl': '48px',
-    },
-    fontWeight: {
-      normal: 500,
-      medium: 600,
-      bold: 700,
-      black: 900,
-    },
-    lineHeight: {
-      tight: 1.2,
-      base: 1.5,
-      relaxed: 1.75,
-    },
+  // Backward compatibility aliases for old neobrutalism properties
+  shadows: {
+    xs: '0px 1px 2px rgba(0, 0, 0, 0.3), 0px 1px 3px 1px rgba(0, 0, 0, 0.15)',
+    sm: '0px 1px 2px rgba(0, 0, 0, 0.3), 0px 1px 3px 1px rgba(0, 0, 0, 0.15)',
+    small: '0px 1px 2px rgba(0, 0, 0, 0.3), 0px 1px 3px 1px rgba(0, 0, 0, 0.15)',
+    md: '0px 1px 2px rgba(0, 0, 0, 0.3), 0px 2px 6px 2px rgba(0, 0, 0, 0.15)',
+    medium: '0px 1px 2px rgba(0, 0, 0, 0.3), 0px 2px 6px 2px rgba(0, 0, 0, 0.15)',
+    lg: '0px 1px 3px rgba(0, 0, 0, 0.3), 0px 4px 8px 3px rgba(0, 0, 0, 0.15)',
+    large: '0px 1px 3px rgba(0, 0, 0, 0.3), 0px 4px 8px 3px rgba(0, 0, 0, 0.15)',
   },
 
-  // Z-index
-  zIndex: {
-    base: 1,
-    dropdown: 10,
-    modal: 100,
-    tooltip: 1000,
-    notification: 10000,
+  // Material Design 3 Borders (subtle, not brutal)
+  borders: {
+    thin: `1px solid #787885`, // Using outline color
+    medium: `1px solid #787885`, // Changed from 2px to 1px
+    thick: `1px solid #787885`, // Changed from 3px to 1px
+    extraThick: `1px solid #787885`, // Changed from 4px to 1px
   },
 
-  // Transiciones - Rápidas y directas
+  radius: {
+    none: '0px',
+    sm: '4px',
+    md: '8px',
+    lg: '12px',
+    xl: '16px',
+    full: '9999px',
+  },
+
   transitions: {
-    fast: '0.1s ease-in-out',
-    base: '0.15s ease-in-out',
-    slow: '0.2s ease-in-out',
+    fast: 'all 150ms cubic-bezier(0.2, 0.0, 0, 1.0)',
+    base: 'all 200ms cubic-bezier(0.2, 0.0, 0, 1.0)',
+    slow: 'all 300ms cubic-bezier(0.2, 0.0, 0, 1.0)',
   },
 } as const;
 
-// Helper para crear botones neobrutalistas
-export const neoButton = (variant: 'primary' | 'secondary' | 'accent' | 'success' | 'error' = 'primary') => {
-  const colorMap = {
-    primary: neoBrutalism.colors.primary,
-    secondary: neoBrutalism.colors.secondary,
-    accent: neoBrutalism.colors.accent,
-    success: neoBrutalism.colors.success,
-    error: neoBrutalism.colors.error,
+// Material 3 Filled Button
+export const neoButton = (variant: 'filled' | 'outlined' | 'text' | 'elevated' | 'tonal' = 'filled') => {
+  const variants = {
+    filled: {
+      background: neoBrutalism.colors.primary,
+      color: neoBrutalism.colors.onPrimary,
+      elevation: neoBrutalism.elevation.level0,
+      hoverElevation: neoBrutalism.elevation.level1,
+    },
+    elevated: {
+      background: neoBrutalism.colors.surfaceContainerLow,
+      color: neoBrutalism.colors.primary,
+      elevation: neoBrutalism.elevation.level1,
+      hoverElevation: neoBrutalism.elevation.level2,
+    },
+    tonal: {
+      background: neoBrutalism.colors.secondaryContainer,
+      color: neoBrutalism.colors.onSecondaryContainer,
+      elevation: neoBrutalism.elevation.level0,
+      hoverElevation: neoBrutalism.elevation.level1,
+    },
+    outlined: {
+      background: 'transparent',
+      color: neoBrutalism.colors.primary,
+      border: `1px solid ${neoBrutalism.colors.outline}`,
+      elevation: neoBrutalism.elevation.level0,
+      hoverElevation: neoBrutalism.elevation.level0,
+    },
+    text: {
+      background: 'transparent',
+      color: neoBrutalism.colors.primary,
+      elevation: neoBrutalism.elevation.level0,
+      hoverElevation: neoBrutalism.elevation.level0,
+    },
   };
 
-  return {
-    backgroundColor: colorMap[variant],
-    color: neoBrutalism.colors.text.primary,
-    border: neoBrutalism.borders.thick,
-    borderRadius: neoBrutalism.radius.none,
-    padding: `${neoBrutalism.spacing.md} ${neoBrutalism.spacing.xl}`,
-    fontWeight: neoBrutalism.typography.fontWeight.bold,
-    fontSize: neoBrutalism.typography.fontSize.base,
-    cursor: 'pointer',
-    boxShadow: neoBrutalism.shadows.medium,
-    transition: neoBrutalism.transitions.fast,
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.5px',
-    fontFamily: neoBrutalism.typography.fontFamily.base,
+  const style = variants[variant];
 
-    // Hover state
+  return {
+    backgroundColor: style.background,
+    color: style.color,
+    border: style.border || 'none',
+    borderRadius: neoBrutalism.shape.full,
+    padding: '10px 24px',
+    height: '40px',
+    minWidth: '64px',
+    fontSize: neoBrutalism.typography.labelLarge.fontSize,
+    fontWeight: neoBrutalism.typography.labelLarge.fontWeight,
+    letterSpacing: neoBrutalism.typography.labelLarge.letterSpacing,
+    fontFamily: neoBrutalism.typography.fontFamily.brand,
+    cursor: 'pointer',
+    boxShadow: style.elevation.shadow,
+    transition: `all ${neoBrutalism.motion.duration.short4} ${neoBrutalism.motion.easing.standard}`,
+    textTransform: 'none' as const,
+    userSelect: 'none' as const,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: neoBrutalism.spacing.sm,
+    position: 'relative' as const,
+    overflow: 'hidden',
+
     ':hover': {
-      transform: 'translate(2px, 2px)',
-      boxShadow: neoBrutalism.shadows.small,
+      boxShadow: style.hoverElevation.shadow,
     },
 
-    // Active state
-    ':active': {
-      transform: 'translate(6px, 6px)',
-      boxShadow: 'none',
+    ':focus': {
+      outline: `3px solid ${neoBrutalism.colors.primary}40`,
+      outlineOffset: '2px',
     },
   };
 };
 
-// Helper para crear cards neobrutalistas
-export const neoCard = (backgroundColor = neoBrutalism.colors.surface) => ({
-  backgroundColor,
-  border: neoBrutalism.borders.thick,
-  borderRadius: neoBrutalism.radius.none,
-  boxShadow: neoBrutalism.shadows.large,
-  padding: neoBrutalism.spacing.xl,
+// Material 3 Card
+export const neoCard = (elevated = false) => ({
+  backgroundColor: elevated ? neoBrutalism.colors.surfaceContainerLow : neoBrutalism.colors.surfaceContainer,
+  borderRadius: neoBrutalism.shape.medium,
+  boxShadow: elevated ? neoBrutalism.elevation.level1.shadow : neoBrutalism.elevation.level0.shadow,
+  padding: neoBrutalism.spacing.lg,
+  transition: `all ${neoBrutalism.motion.duration.short4} ${neoBrutalism.motion.easing.standard}`,
+  border: `1px solid ${neoBrutalism.colors.outlineVariant}`,
 });
 
-// Helper para inputs neobrutalistas
+// Material 3 Text Field
 export const neoInput = () => ({
-  backgroundColor: neoBrutalism.colors.surface,
-  border: neoBrutalism.borders.medium,
-  borderRadius: neoBrutalism.radius.none,
-  padding: `${neoBrutalism.spacing.md} ${neoBrutalism.spacing.lg}`,
-  fontSize: neoBrutalism.typography.fontSize.base,
-  fontWeight: neoBrutalism.typography.fontWeight.medium,
-  color: neoBrutalism.colors.text.primary,
-  fontFamily: neoBrutalism.typography.fontFamily.base,
+  backgroundColor: neoBrutalism.colors.surfaceContainerHighest,
+  border: 'none',
+  borderBottom: `1px solid ${neoBrutalism.colors.onSurfaceVariant}`,
+  borderRadius: `${neoBrutalism.shape.extraSmall} ${neoBrutalism.shape.extraSmall} 0 0`,
+  padding: `16px 16px 8px 16px`,
+  fontSize: neoBrutalism.typography.bodyLarge.fontSize,
+  fontWeight: neoBrutalism.typography.bodyLarge.fontWeight,
+  color: neoBrutalism.colors.onSurface,
+  fontFamily: neoBrutalism.typography.fontFamily.plain,
+  transition: `all ${neoBrutalism.motion.duration.short4} ${neoBrutalism.motion.easing.standard}`,
 
   ':focus': {
     outline: 'none',
-    borderColor: neoBrutalism.colors.primary,
-    boxShadow: `0 0 0 3px ${neoBrutalism.colors.primary}33`,
+    borderBottomWidth: '2px',
+    borderBottomColor: neoBrutalism.colors.primary,
+    paddingBottom: '7px',
+  },
+
+  '::placeholder': {
+    color: neoBrutalism.colors.onSurfaceVariant,
+    opacity: 0.6,
   },
 });
 

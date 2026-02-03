@@ -1,22 +1,23 @@
 import { useState, useRef } from 'react';
+import neoBrutalism from '../styles/neobrutalism';
 import { MdBlurOn, MdImage, MdGridOn, MdBlurCircular, MdColorLens } from 'react-icons/md';
 import { IoMdClose, IoMdCheckmarkCircle, IoMdRefresh } from 'react-icons/io';
 import { FiDownload, FiSearch, FiCheck, FiX, FiUpload } from 'react-icons/fi';
 import { BsEmojiSmile, BsSquareFill, BsCircleFill, BsStars } from 'react-icons/bs';
 
-// Gemstone Inc inspired colors
+// MD3 colors from neoBrutalism theme
 const colors = {
-  bg: '#0a0a0f',
-  surface: '#12121a',
-  card: '#1a1a24',
-  border: '#2a2a3a',
-  primary: '#00E5FF',
-  secondary: '#FF148A',
-  accent: '#FFC800',
-  text: '#ffffff',
-  textSecondary: '#b0b0c0',
-  textMuted: '#606070',
-  gradient: 'linear-gradient(135deg, #00E5FF 0%, #FF148A 100%)',
+  bg: neoBrutalism.colors.background,
+  surface: neoBrutalism.colors.surface,
+  card: neoBrutalism.colors.surfaceContainerHigh,
+  border: neoBrutalism.colors.outline,
+  primary: neoBrutalism.colors.primary,
+  secondary: neoBrutalism.colors.secondary,
+  accent: neoBrutalism.colors.tertiary,
+  text: neoBrutalism.colors.onSurface,
+  textSecondary: neoBrutalism.colors.onSurfaceVariant,
+  textMuted: neoBrutalism.colors.onSurfaceVariant,
+  gradient: `linear-gradient(135deg, ${neoBrutalism.colors.primary} 0%, ${neoBrutalism.colors.secondary} 100%)`,
 };
 
 // Blur style types

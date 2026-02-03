@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -740,4 +741,78 @@ func (h *VideoHandler) WatermarkDelete(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "watermark deleted"})
+}
+
+// ReplaceIntro replaces the beginning of a video with a static image
+func (h *VideoHandler) ReplaceIntro(c *gin.Context) {
+	videoID := c.Param("id")
+
+	// Parse duration from form
+	durationStr := c.PostForm("duration")
+	if durationStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "duration is required"})
+		return
+	}
+
+	var duration float64
+	if _, err := fmt.Sscanf(durationStr, "%f", &duration); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid duration format"})
+		return
+	}
+
+	if duration <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "duration must be greater than 0"})
+		return
+	}
+
+	// Get uploaded image file
+	file, err := c.FormFile("image")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "image file is required"})
+		return
+	}
+
+	// Validate file type (must be image)
+	if !strings.HasPrefix(file.Header.Get("Content-Type"), "image/") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "file must be an image (JPG, PNG, WebP, etc.)"})
+		return
+	}
+
+	// Save uploaded image to temporary location
+	imageFilename := fmt.Sprintf("%s_intro_image_%d%s", videoID, time.Now().Unix(), filepath.Ext(file.Filename))
+	imagePath := h.services.Storage.GetTempPath(imageFilename)
+
+	if err := c.SaveUploadedFile(file, imagePath); err != nil {
+		h.logger.Error("Failed to save uploaded image", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save image"})
+		return
+	}
+	defer os.Remove(imagePath) // Clean up temp image after processing
+
+	h.logger.Info("Processing replace intro request",
+		zap.String("video_id", videoID),
+		zap.Float64("duration", duration),
+		zap.String("image_path", imagePath),
+	)
+
+	// Call service to replace intro
+	newVideo, err := h.services.Video.ReplaceIntroWithImage(c.Request.Context(), videoID, imagePath, duration)
+	if err != nil {
+		h.logger.Error("Failed to replace intro", zap.Error(err))
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, gin.H{"error": "video not found"})
+			return
+		}
+		if strings.Contains(err.Error(), "shorter than replacement duration") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to replace intro: %v", err)})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "intro replaced successfully",
+		"video":   newVideo,
+	})
 }

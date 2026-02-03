@@ -1,20 +1,22 @@
 import { useState, useRef, useCallback } from 'react';
+import neoBrutalism from '../styles/neobrutalism';
 import { FiUpload, FiX, FiImage, FiTrash2 } from 'react-icons/fi';
 import { apiClient } from '../api/client';
+import NeoSwitch from './NeoSwitch';
 
-// Colors matching VideoEditor.tsx
+// MD3 colors from neoBrutalism theme
 const colors = {
-  bg: '#0a0a0f',
-  surface: '#12121a',
-  card: '#1a1a24',
-  border: '#2a2a3a',
-  primary: '#00E5FF',
-  secondary: '#FF148A',
-  accent: '#FFC800',
-  danger: '#ff4466',
-  text: '#ffffff',
-  textSecondary: '#b0b0c0',
-  textMuted: '#606070',
+  bg: neoBrutalism.colors.background,
+  surface: neoBrutalism.colors.surface,
+  card: neoBrutalism.colors.surfaceContainerHigh,
+  border: neoBrutalism.colors.outline,
+  primary: neoBrutalism.colors.primary,
+  secondary: neoBrutalism.colors.secondary,
+  accent: neoBrutalism.colors.tertiary,
+  danger: neoBrutalism.colors.error,
+  text: neoBrutalism.colors.onSurface,
+  textSecondary: neoBrutalism.colors.onSurfaceVariant,
+  textMuted: neoBrutalism.colors.onSurfaceVariant,
 };
 
 export interface WatermarkConfig {
@@ -98,7 +100,7 @@ export default function WatermarkSettings({
   const containerStyle: React.CSSProperties = compact ? {
     padding: 12,
     backgroundColor: colors.card,
-    borderRadius: 8,
+    borderRadius: neoBrutalism.shape.small,
     border: `1px solid ${colors.border}`,
   } : {
     position: 'fixed',
@@ -108,9 +110,9 @@ export default function WatermarkSettings({
     width: 400,
     maxWidth: '90vw',
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: neoBrutalism.shape.medium,
     border: `1px solid ${colors.border}`,
-    boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+    boxShadow: neoBrutalism.elevation.level3.shadow,
     zIndex: 1000,
   };
 
@@ -124,7 +126,7 @@ export default function WatermarkSettings({
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.7)',
+            backgroundColor: `${neoBrutalism.colors.scrim}B3`,
             zIndex: 999,
           }}
           onClick={onClose}
@@ -175,42 +177,10 @@ export default function WatermarkSettings({
             }}
           >
             <span style={{ color: colors.text, fontSize: 14 }}>Activar marca de agua</span>
-            <label
-              style={{
-                position: 'relative',
-                width: 44,
-                height: 24,
-                cursor: 'pointer',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={config.enabled}
-                onChange={(e) => onChange({ ...config, enabled: e.target.checked })}
-                style={{ display: 'none' }}
-              />
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  backgroundColor: config.enabled ? colors.primary : colors.border,
-                  borderRadius: 12,
-                  transition: 'background-color 0.2s',
-                }}
-              />
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 2,
-                  left: config.enabled ? 22 : 2,
-                  width: 20,
-                  height: 20,
-                  backgroundColor: '#fff',
-                  borderRadius: 10,
-                  transition: 'left 0.2s',
-                }}
-              />
-            </label>
+            <NeoSwitch
+              checked={config.enabled}
+              onChange={(checked) => onChange({ ...config, enabled: checked })}
+            />
           </div>
 
           {/* Upload area */}
@@ -220,7 +190,7 @@ export default function WatermarkSettings({
               style={{
                 padding: 24,
                 border: `2px dashed ${colors.border}`,
-                borderRadius: 8,
+                borderRadius: neoBrutalism.shape.small,
                 textAlign: 'center',
                 cursor: 'pointer',
                 opacity: isUploading ? 0.6 : 1,
@@ -249,7 +219,7 @@ export default function WatermarkSettings({
                 gap: 12,
                 padding: 12,
                 backgroundColor: colors.bg,
-                borderRadius: 8,
+                borderRadius: neoBrutalism.shape.small,
                 marginBottom: 16,
               }}
             >
@@ -261,7 +231,7 @@ export default function WatermarkSettings({
                   height: 60,
                   objectFit: 'contain',
                   backgroundColor: colors.card,
-                  borderRadius: 4,
+                  borderRadius: neoBrutalism.shape.extraSmall,
                 }}
               />
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -323,7 +293,7 @@ export default function WatermarkSettings({
                         backgroundColor: config.position === pos.value ? colors.primary : colors.card,
                         color: config.position === pos.value ? colors.bg : colors.text,
                         border: `1px solid ${config.position === pos.value ? colors.primary : colors.border}`,
-                        borderRadius: 6,
+                        borderRadius: neoBrutalism.shape.extraSmall,
                         cursor: 'pointer',
                         fontSize: 12,
                         fontWeight: config.position === pos.value ? 600 : 400,
@@ -402,7 +372,7 @@ export default function WatermarkSettings({
                       backgroundColor: colors.card,
                       color: colors.text,
                       border: `1px solid ${colors.border}`,
-                      borderRadius: 6,
+                      borderRadius: neoBrutalism.shape.extraSmall,
                       fontSize: 13,
                       outline: 'none',
                     }}
@@ -424,7 +394,7 @@ export default function WatermarkSettings({
                       backgroundColor: colors.card,
                       color: colors.text,
                       border: `1px solid ${colors.border}`,
-                      borderRadius: 6,
+                      borderRadius: neoBrutalism.shape.extraSmall,
                       fontSize: 13,
                       outline: 'none',
                     }}

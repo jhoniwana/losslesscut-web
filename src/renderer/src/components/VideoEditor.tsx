@@ -1,15 +1,18 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { IoMdPlay, IoMdPause, IoMdTrash, IoMdDownload, IoMdSkipForward, IoMdSkipBackward, IoMdCheckmark, IoMdClose, IoMdHelpCircle, IoMdCamera, IoMdImages, IoMdList, IoMdArrowForward, IoMdArrowBack, IoMdCreate, IoMdReorder } from 'react-icons/io';
-import { FiUpload, FiScissors, FiChevronRight, FiChevronLeft, FiEdit2, FiCrop, FiMove, FiImage } from 'react-icons/fi';
+import { FiUpload, FiScissors, FiChevronRight, FiChevronLeft, FiEdit2, FiCrop, FiMove, FiImage, FiFilm } from 'react-icons/fi';
 import { MdContentCut, MdPlaylistPlay, MdEdit, MdBlurOn } from 'react-icons/md';
 import { apiClient, Project, Segment, Operation } from '../api/client';
 import IntroOutroSelector from './IntroOutroSelector';
 import CropSelector, { CropConfig } from './CropSelector';
+import CropKeyframePanel from './CropKeyframePanel';
 import BlurRegionSelector, { BlurConfig, ClipBlurZone } from './BlurRegionSelector';
 import WatermarkSettings, { WatermarkConfig, getDefaultWatermarkConfig } from './WatermarkSettings';
+import ReplaceIntroModal from './ReplaceIntroModal';
 
 // Neobrutalism design system
 import neoBrutalism, { neoButton, neoCard, neoInput } from '../styles/neobrutalism';
+import NeoButton, { NeoIconButton } from './NeoButton';
 
 // Neobrutal colors - Bold, high contrast, inspired by Iguanads
 const colors = {
@@ -28,6 +31,9 @@ const colors = {
   textMuted: neoBrutalism.colors.text.muted,
   shadow: neoBrutalism.shadows.medium,
   shadowDeep: neoBrutalism.shadows.large,
+  // Replace gradients with solid neobrutal colors
+  gradient: neoBrutalism.colors.primary,
+  gradientAccent: neoBrutalism.colors.accent,
 };
 
 interface Props {
@@ -82,6 +88,8 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
   });
   const [videoWidth, setVideoWidth] = useState(1920);
   const [videoHeight, setVideoHeight] = useState(1080);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Blur configuration (global settings)
   const [blurConfig, setBlurConfig] = useState<BlurConfig>({
@@ -98,6 +106,13 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
   // Watermark configuration
   const [watermarkConfig, setWatermarkConfig] = useState<WatermarkConfig>(getDefaultWatermarkConfig());
   const [showWatermarkSettings, setShowWatermarkSettings] = useState(false);
+
+  // Crop keyframes panel
+  const [showCropKeyframesPanel, setShowCropKeyframesPanel] = useState(false);
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
+
+  // Replace intro modal
+  const [showReplaceIntroModal, setShowReplaceIntroModal] = useState(false);
 
   // Preview segments mode
   const [isPreviewMode, setIsPreviewMode] = useState(false);
@@ -137,6 +152,32 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
   const dismissToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
+
+  // Handle crop changes per segment
+  const handleSegmentCropChange = useCallback((segmentId: string, cropConfig: CropConfig | null) => {
+    setSegments(prev => prev.map(seg => {
+      if (seg.id === segmentId) {
+        return {
+          ...seg,
+          cropConfig: cropConfig ? {
+            enabled: cropConfig.enabled,
+            preset: cropConfig.preset,
+            x: cropConfig.x,
+            y: cropConfig.y,
+            width: cropConfig.width,
+            height: cropConfig.height,
+          } : undefined,
+        };
+      }
+      return seg;
+    }));
+
+    if (cropConfig) {
+      showToast(`Crop aplicado al clip`, 'success');
+    } else {
+      showToast(`Crop removido del clip`, 'info');
+    }
+  }, [showToast]);
 
   // First time user hint
   const [showFirstTimeHint, setShowFirstTimeHint] = useState(() => {
@@ -568,15 +609,33 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
     try {
       setVideoFile(file);
-      const result = await apiClient.uploadVideo(file);
+      const result = await apiClient.uploadVideo(file, (progress) => {
+        setUploadProgress(progress);
+      });
       setVideoUrl(apiClient.getVideoStreamUrl(result.video_id));
       setVideoId(result.video_id);
+      setUploadProgress(100);
+
       const proj = await apiClient.createProject(file.name, result.video_id);
       setProject(proj);
       setSegments(proj.segments || []);
-    } catch (e) { console.error(e); }
+
+      setTimeout(() => {
+        setIsUploading(false);
+        setUploadProgress(0);
+      }, 1000);
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Error al subir el video');
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
   };
 
   const handleMarkStart = () => {
@@ -1076,60 +1135,8 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
   const segColors = ['#00E5FF', '#FF148A', '#FFC800', '#00FF88', '#AA66FF', '#FF6644'];
   const selectedCount = segments.filter(s => s.selected).length;
 
-  // Styles - Gemstone Inc aesthetic (rounded, modern, with shadows)
-  const btn = (bg: string, color: string = '#fff'): React.CSSProperties => ({
-    background: bg,
-    color,
-    border: 'none',
-    borderRadius: '9999px', // Pill shape
-    padding: isMobile ? '12px 20px' : '14px 28px',
-    fontSize: isMobile ? '14px' : '15px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    transition: 'all 0.2s ease',
-    width: '100%',
-    boxShadow: `0 4px 15px ${bg}40`,
-    textShadow: '0 1px 2px rgba(0,0,0,0.2)',
-  });
-
-  // Gradient button style
-  const btnGradient = (gradient: string, color: string = '#fff'): React.CSSProperties => ({
-    background: gradient,
-    color,
-    border: 'none',
-    borderRadius: '9999px',
-    padding: isMobile ? '12px 20px' : '14px 28px',
-    fontSize: isMobile ? '14px' : '15px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    transition: 'all 0.2s ease',
-    width: '100%',
-    boxShadow: '0 4px 20px rgba(0, 229, 255, 0.3)',
-    textShadow: '0 1px 2px rgba(0,0,0,0.2)',
-  });
-
-  const iconBtn: React.CSSProperties = {
-    background: `linear-gradient(145deg, ${colors.card} 0%, ${colors.surface} 100%)`,
-    color: colors.text,
-    border: `1px solid ${colors.border}`,
-    borderRadius: '14px',
-    width: isMobile ? '44px' : '48px',
-    height: isMobile ? '44px' : '48px',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'all 0.2s ease',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-  };
+  // Note: btn(), btnGradient(), and iconBtn have been removed
+  // Use NeoButton and NeoIconButton components instead
 
   return (
     <div style={{
@@ -1139,65 +1146,70 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
       zIndex: 100,
       display: 'flex',
       flexDirection: 'column',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontFamily: neoBrutalism.typography.fontFamily.base,
     }}>
-      {/* Header - Gemstone Inc Style */}
+      {/* Header - Material Design 3 Style */}
       <header style={{
-        background: `linear-gradient(180deg, ${colors.surface} 0%, ${colors.bg} 100%)`,
+        background: neoBrutalism.colors.surfaceContainerHigh,
         padding: isMobile ? '12px 16px' : '16px 24px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        borderBottom: `1px solid ${colors.border}`,
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+        borderBottom: `1px solid ${neoBrutalism.colors.outline}`,
+        boxShadow: neoBrutalism.elevation.level1.shadow,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          {/* Gemstone Inc Logo */}
-          <img
-            src={gemstonelogo}
-            alt="Gemstone Inc"
-            style={{
-              height: isMobile ? '36px' : '44px',
-              width: 'auto',
-              filter: 'drop-shadow(0 2px 8px rgba(0, 229, 255, 0.3))',
-            }}
-          />
+          {/* LC Logo - Material Design 3 */}
+          <div style={{
+            backgroundColor: colors.primary,
+            border: `1px solid ${neoBrutalism.colors.outline}`,
+            padding: isMobile ? '6px 12px' : '8px 16px',
+            boxShadow: neoBrutalism.elevation.level1.shadow,
+            borderRadius: neoBrutalism.shape.small,
+          }}>
+            <span style={{
+              fontSize: isMobile ? '18px' : '24px',
+              fontWeight: neoBrutalism.typography.fontWeight.black,
+              color: neoBrutalism.colors.onPrimary,
+              textTransform: 'uppercase',
+              letterSpacing: '1px',
+            }}>
+              LC
+            </span>
+          </div>
           <div>
             <h1 style={{
               margin: 0,
-              fontSize: isMobile ? '14px' : '16px',
-              fontWeight: '600',
-              color: colors.textSecondary,
+              fontSize: isMobile ? '16px' : '20px',
+              fontWeight: neoBrutalism.typography.fontWeight.black,
+              color: neoBrutalism.colors.onSurface,
               letterSpacing: '0.5px',
+              textTransform: 'uppercase',
             }}>
-              Video Studio
+              VIDEO EDITOR
             </h1>
             {videoFile && (
-              <p style={{ margin: 0, fontSize: '12px', color: colors.textMuted, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <p style={{ margin: 0, fontSize: '12px', color: neoBrutalism.colors.text.secondary, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: neoBrutalism.typography.fontWeight.bold, opacity: 0.8 }}>
                 {videoFile.name}
               </p>
             )}
           </div>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={() => setShowHelp(true)} style={{
-            ...iconBtn,
-            background: colors.card,
-            border: `1px solid ${colors.border}`,
-            borderRadius: '50%',
-            transition: 'all 0.2s ease',
-          }} title="Ayuda">
+          <NeoIconButton
+            onClick={() => setShowHelp(true)}
+            variant="standard"
+            title="Ayuda"
+          >
             <IoMdHelpCircle size={20} />
-          </button>
-          <button onClick={onClose} style={{
-            ...iconBtn,
-            background: colors.card,
-            border: `1px solid ${colors.border}`,
-            borderRadius: '50%',
-            transition: 'all 0.2s ease',
-          }}>
+          </NeoIconButton>
+          <NeoIconButton
+            onClick={onClose}
+            variant="standard"
+            title="Cerrar"
+          >
             <IoMdClose size={20} />
-          </button>
+          </NeoIconButton>
         </div>
       </header>
 
@@ -1205,25 +1217,25 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
       {showHelp && (
         <div style={{
           position: 'absolute', inset: 0,
-          background: 'rgba(10, 10, 15, 0.92)',
+          background: colors.card,
           backdropFilter: 'blur(8px)',
           zIndex: 200,
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
         }} onClick={() => setShowHelp(false)}>
           <div style={{
-            background: `linear-gradient(145deg, ${colors.card} 0%, ${colors.surface} 100%)`,
-            borderRadius: '24px',
+            background: neoBrutalism.colors.surfaceContainerHigh,
+            borderRadius: neoBrutalism.shape.medium,
             padding: '28px',
             maxWidth: '420px',
             width: '100%',
             border: `1px solid ${colors.border}`,
-            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 229, 255, 0.1)',
+            boxShadow: neoBrutalism.elevation.level2.shadow,
           }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
               <div style={{
                 width: '36px', height: '36px',
-                background: colors.gradient,
-                borderRadius: '10px',
+                background: neoBrutalism.colors.primary,
+                borderRadius: neoBrutalism.shape.small,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 <span style={{ fontSize: '18px' }}>◆</span>
@@ -1232,27 +1244,24 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                 margin: 0,
                 fontSize: '22px',
                 fontWeight: '700',
-                background: colors.gradient,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
+                color: neoBrutalism.colors.primary,
               }}>Cómo usar</h2>
             </div>
             <div style={{ color: colors.textSecondary, fontSize: '14px', lineHeight: '2' }}>
               <p><span style={{ color: colors.primary, fontWeight: '700' }}>1.</span> Sube un video</p>
               <p><span style={{ color: colors.primary, fontWeight: '700' }}>2.</span> Navega al punto de inicio</p>
               <p><span style={{ color: colors.primary, fontWeight: '700' }}>3.</span> Presiona <span style={{
-                background: colors.accent, color: '#000', padding: '2px 8px', borderRadius: '6px', fontWeight: '700'
+                background: colors.accent, color: '#000', padding: '2px 8px', borderRadius: neoBrutalism.shape.small, fontWeight: '700'
               }}>I</span> (Marcar inicio)</p>
               <p><span style={{ color: colors.primary, fontWeight: '700' }}>4.</span> Navega al punto final</p>
               <p><span style={{ color: colors.primary, fontWeight: '700' }}>5.</span> Presiona <span style={{
-                background: colors.secondary, color: '#fff', padding: '2px 8px', borderRadius: '6px', fontWeight: '700'
+                background: colors.secondary, color: '#fff', padding: '2px 8px', borderRadius: neoBrutalism.shape.small, fontWeight: '700'
               }}>O</span> (Marcar fin)</p>
               <p><span style={{ color: colors.primary, fontWeight: '700' }}>6.</span> Toca <strong>Exportar</strong> para guardar</p>
             </div>
             <div style={{
-              background: colors.surface,
-              borderRadius: '12px',
+              background: neoBrutalism.colors.surfaceContainerLow,
+              borderRadius: neoBrutalism.shape.small,
               padding: '12px 16px',
               marginTop: '16px',
               border: `1px solid ${colors.border}`,
@@ -1261,12 +1270,15 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                 <strong style={{ color: colors.primary }}>Atajos:</strong> Espacio=Play, I/O=Cortar, ←→=1s, Shift+←→=0.1s
               </p>
             </div>
-            <button onClick={() => setShowHelp(false)} style={{
-              ...btnGradient(colors.gradient),
-              marginTop: '20px',
-            }}>
+            <NeoButton
+              onClick={() => setShowHelp(false)}
+              variant="filled"
+              color="primary"
+              fullWidth
+              style={{ marginTop: '20px' }}
+            >
               ¡Entendido!
-            </button>
+            </NeoButton>
           </div>
         </div>
       )}
@@ -1274,29 +1286,29 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
       {/* Main */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {!videoUrl ? (
-          // Upload - Gemstone Inc Style
+          /* Upload Screen - Neobrutalismo Style */
           <div style={{
             flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             padding: '32px', gap: '28px',
-            background: `radial-gradient(circle at 50% 30%, ${colors.surface} 0%, ${colors.bg} 70%)`,
+            background: colors.bg,
           }}>
-            {/* Gemstone Inc Logo */}
+            {/* LC Logo - Material Design 3 */}
             <div style={{
-              padding: '20px',
-              borderRadius: '24px',
-              background: `linear-gradient(145deg, rgba(26, 26, 36, 0.8) 0%, rgba(18, 18, 26, 0.9) 100%)`,
-              boxShadow: '0 8px 40px rgba(0, 229, 255, 0.2), 0 0 60px rgba(255, 20, 138, 0.15)',
-              border: `1px solid ${colors.border}`,
+              backgroundColor: colors.primary,
+              border: `1px solid ${neoBrutalism.colors.outline}`,
+              padding: '16px 32px',
+              boxShadow: neoBrutalism.elevation.level2.shadow,
+              borderRadius: neoBrutalism.shape.medium,
             }}>
-              <img
-                src={gemstonelogo}
-                alt="Gemstone Inc"
-                style={{
-                  height: '80px',
-                  width: 'auto',
-                  filter: 'drop-shadow(0 4px 12px rgba(0, 229, 255, 0.4))',
-                }}
-              />
+              <span style={{
+                fontSize: '48px',
+                fontWeight: neoBrutalism.typography.fontWeight.black,
+                color: neoBrutalism.colors.onPrimary,
+                textTransform: 'uppercase',
+                letterSpacing: '2px',
+              }}>
+                LC
+              </span>
             </div>
             <div style={{ textAlign: 'center' }}>
               <h2 style={{
@@ -1310,13 +1322,35 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
               </p>
             </div>
             <label style={{
-              ...btnGradient(colors.gradient),
-              maxWidth: '300px',
-              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: neoBrutalism.spacing.sm,
               padding: '16px 32px',
+              backgroundColor: neoBrutalism.colors.primary,
+              color: neoBrutalism.colors.onPrimary,
+              borderRadius: neoBrutalism.shape.full,
               fontSize: '16px',
-            }}>
-              <FiUpload size={22} /> Subir Video
+              fontWeight: neoBrutalism.typography.labelLarge.fontWeight,
+              fontFamily: neoBrutalism.typography.fontFamily.brand,
+              cursor: 'pointer',
+              boxShadow: neoBrutalism.elevation.level0.shadow,
+              transition: `all ${neoBrutalism.motion.duration.short4} ${neoBrutalism.motion.easing.standard}`,
+              maxWidth: '300px',
+              width: '100%',
+              userSelect: 'none',
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.boxShadow = neoBrutalism.elevation.level1.shadow;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = neoBrutalism.elevation.level0.shadow;
+            }}
+            >
+              <FiUpload size={22} />
+              Subir Video
               <input type="file" accept="video/*,audio/*" onChange={handleUpload} style={{ display: 'none' }} />
             </label>
             <p style={{ color: colors.textMuted, fontSize: '13px', marginTop: '-8px' }}>
@@ -1334,44 +1368,44 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                 position: 'absolute', top: 0, left: 0, bottom: 0,
                 width: leftSidebarOpen ? (isMobile ? '280px' : '320px') : '50px',
                 background: leftSidebarOpen
-                  ? `linear-gradient(180deg, rgba(18, 18, 26, 0.98) 0%, rgba(10, 10, 15, 0.98) 100%)`
-                  : 'rgba(18, 18, 26, 0.9)',
+                  ? neoBrutalism.colors.surfaceContainerHigh
+                  : neoBrutalism.colors.surfaceContainer,
                 backdropFilter: 'blur(16px)',
                 borderRight: `1px solid ${colors.border}`,
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 display: 'flex', flexDirection: 'column',
                 zIndex: 20,
-                boxShadow: leftSidebarOpen ? '8px 0 30px rgba(0, 0, 0, 0.3)' : 'none',
+                boxShadow: leftSidebarOpen ? neoBrutalism.elevation.level2.shadow : 'none',
               }}>
                 {/* Left Sidebar Toggle */}
                 <button
                   onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
                   style={{
-                    background: colors.gradientAccent,
+                    background: neoBrutalism.colors.tertiaryContainer,
                     border: 'none',
-                    color: '#fff',
+                    color: neoBrutalism.colors.onTertiaryContainer,
                     padding: '12px 16px',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: leftSidebarOpen ? 'space-between' : 'center',
                     gap: '8px',
-                    borderBottom: `1px solid rgba(255,255,255,0.1)`,
-                    boxShadow: '0 4px 15px rgba(255, 20, 138, 0.2)',
+                    borderBottom: `1px solid ${neoBrutalism.colors.outlineVariant}`,
+                    boxShadow: neoBrutalism.elevation.level0.shadow,
                     flexShrink: 0,
                   }}
                 >
                   {leftSidebarOpen ? (
                     <>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: '700', fontSize: '14px' }}>
-                        <span style={{ fontSize: '16px' }}>🎬</span>
+                        <FiFilm size={16} />
                         Herramientas
                       </span>
                       <FiChevronLeft size={20} />
                     </>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ fontSize: '18px' }}>🎬</span>
+                      <FiFilm size={18} />
                     </div>
                   )}
                 </button>
@@ -1393,6 +1427,49 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                         onClose={() => setCropConfig({ ...cropConfig, enabled: false })}
                       />
                     </div>
+
+                    {/* Crop Keyframes Button */}
+                    {segments.length > 0 && (
+                      <div style={{ marginBottom: '16px' }}>
+                        <button
+                          onClick={() => setShowCropKeyframesPanel(true)}
+                          style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '12px 14px',
+                            background: segments.some(s => s.cropConfig?.enabled) ? `${colors.primary}20` : neoBrutalism.colors.surfaceContainerHigh,
+                            border: `1px solid ${segments.some(s => s.cropConfig?.enabled) ? colors.primary : colors.border}`,
+                            borderRadius: neoBrutalism.shape.medium,
+                            cursor: 'pointer',
+                            color: colors.text,
+                            fontSize: '13px',
+                            fontWeight: '500',
+                            transition: 'all 0.2s',
+                            boxShadow: segments.some(s => s.cropConfig?.enabled) ? neoBrutalism.elevation.level1.shadow : 'none',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <FiMove size={18} color={segments.some(s => s.cropConfig?.enabled) ? colors.primary : colors.textSecondary} />
+                            <span>Recorte por Clip</span>
+                          </div>
+                          {segments.some(s => s.cropConfig?.enabled) && (
+                            <span style={{
+                              background: colors.primary,
+                              color: '#fff',
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              fontWeight: '600',
+                            }}>
+                              {segments.filter(s => s.cropConfig?.enabled).length} clips
+                            </span>
+                          )}
+                          <FiChevronRight size={16} color={colors.textMuted} />
+                        </button>
+                      </div>
+                    )}
 
                     {/* Blur Section */}
                     <div style={{ marginBottom: '16px' }}>
@@ -1419,14 +1496,15 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                           alignItems: 'center',
                           justifyContent: 'space-between',
                           padding: '12px 14px',
-                          background: watermarkConfig.enabled ? `${colors.accent}20` : colors.card,
+                          background: watermarkConfig.enabled ? `${colors.accent}20` : neoBrutalism.colors.surfaceContainerHigh,
                           border: `1px solid ${watermarkConfig.enabled ? colors.accent : colors.border}`,
-                          borderRadius: '10px',
+                          borderRadius: neoBrutalism.shape.medium,
                           cursor: 'pointer',
                           color: colors.text,
                           fontSize: '13px',
                           fontWeight: '500',
                           transition: 'all 0.2s',
+                          boxShadow: watermarkConfig.enabled ? neoBrutalism.elevation.level1.shadow : 'none',
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1438,7 +1516,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                             background: colors.accent,
                             color: '#000',
                             padding: '2px 8px',
-                            borderRadius: '4px',
+                            borderRadius: neoBrutalism.shape.medium,
                             fontSize: '10px',
                             fontWeight: '700',
                           }}>
@@ -1448,13 +1526,48 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                       </button>
                     </div>
 
+                    {/* Replace Intro Section */}
+                    <div style={{ marginBottom: '16px' }}>
+                      <button
+                        onClick={() => setShowReplaceIntroModal(true)}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '12px 14px',
+                          background: neoBrutalism.colors.surfaceContainerHigh,
+                          border: `1px solid ${neoBrutalism.colors.outline}`,
+                          borderRadius: neoBrutalism.shape.medium,
+                          cursor: 'pointer',
+                          color: colors.text,
+                          fontSize: '13px',
+                          fontWeight: neoBrutalism.typography.fontWeight.bold,
+                          transition: 'all 0.2s',
+                          boxShadow: neoBrutalism.elevation.level1.shadow,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <FiImage size={18} color={colors.primary} />
+                          <span>Replace Intro</span>
+                        </div>
+                        <span style={{
+                          fontSize: '10px',
+                          color: colors.textMuted,
+                        }}>
+                          NEW
+                        </span>
+                      </button>
+                    </div>
+
                     {/* Quick stats */}
                     {(cropConfig.enabled || blurConfig.mode === 'auto' || watermarkConfig.enabled) && (
                       <div style={{
-                        background: colors.card,
-                        borderRadius: '10px',
+                        background: neoBrutalism.colors.surfaceContainerHigh,
+                        borderRadius: neoBrutalism.shape.medium,
                         padding: '12px',
                         border: `1px solid ${colors.border}`,
+                        boxShadow: neoBrutalism.elevation.level1.shadow,
                       }}>
                         <div style={{ fontSize: '11px', color: colors.textMuted, marginBottom: '8px', textTransform: 'uppercase' }}>
                           Efectos activos
@@ -1465,7 +1578,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                               background: colors.primary,
                               color: '#000',
                               padding: '4px 10px',
-                              borderRadius: '6px',
+                              borderRadius: neoBrutalism.shape.medium,
                               fontSize: '11px',
                               fontWeight: '600',
                               display: 'flex',
@@ -1480,7 +1593,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                               background: colors.secondary,
                               color: '#fff',
                               padding: '4px 10px',
-                              borderRadius: '6px',
+                              borderRadius: neoBrutalism.shape.medium,
                               fontSize: '11px',
                               fontWeight: '600',
                               display: 'flex',
@@ -1495,7 +1608,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                               background: colors.accent,
                               color: '#000',
                               padding: '4px 10px',
-                              borderRadius: '6px',
+                              borderRadius: neoBrutalism.shape.medium,
                               fontSize: '11px',
                               fontWeight: '600',
                               display: 'flex',
@@ -1556,7 +1669,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                 {/* Time badge */}
                 <div style={{
                   position: 'absolute', top: '12px', left: '12px',
-                  background: 'rgba(0,0,0,0.8)', borderRadius: '8px', padding: '8px 12px',
+                  background: colors.surface, borderRadius: neoBrutalism.shape.medium, padding: '8px 12px',
                   color: colors.primary, fontFamily: 'monospace', fontSize: isMobile ? '16px' : '20px', fontWeight: '600',
                 }}>
                   {fmtFull(currentTime)}
@@ -1567,7 +1680,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                   <div style={{
                     position: 'absolute', bottom: '12px', left: '12px',
                     background: 'rgba(239, 68, 68, 0.95)',
-                    borderRadius: '6px', padding: '8px 14px',
+                    borderRadius: neoBrutalism.shape.medium, padding: '8px 14px',
                     color: '#fff', fontSize: '12px', fontWeight: '600',
                     display: 'flex', alignItems: 'center', gap: '8px',
                     animation: 'pulse 1.5s infinite',
@@ -1581,7 +1694,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                 {editingClipId && (
                   <div style={{
                     position: 'absolute', top: '12px', right: sidebarOpen ? '320px' : '60px',
-                    background: colors.accent, borderRadius: '8px', padding: '8px 12px',
+                    background: colors.accent, borderRadius: neoBrutalism.shape.medium, padding: '8px 12px',
                     color: '#000', fontSize: '13px', fontWeight: '600',
                     transition: 'right 0.3s ease',
                     display: 'flex', alignItems: 'center', gap: '8px',
@@ -1600,19 +1713,19 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                   return (
                     <div style={{
                       position: 'absolute', top: '12px', right: sidebarOpen ? '320px' : '60px',
-                      background: colors.accent, borderRadius: '8px', padding: '10px 14px',
+                      background: colors.accent, borderRadius: neoBrutalism.shape.medium, padding: '10px 14px',
                       color: '#000', fontSize: '13px', fontWeight: '600',
                       transition: 'right 0.3s ease',
                       display: 'flex', flexDirection: 'column', gap: '4px',
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>✂️ IN: {fmt(pendingCutStart)}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><FiScissors size={14} /> IN: {fmt(pendingCutStart)}</span>
                         <span style={{ opacity: 0.6 }}>→</span>
                         <span>OUT: {fmt(currentTime)}</span>
                       </div>
                       <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        background: 'rgba(0,0,0,0.15)', borderRadius: '4px', padding: '4px 8px',
+                        background: colors.bg, borderRadius: neoBrutalism.shape.medium, padding: '4px 8px',
                         marginTop: '2px',
                       }}>
                         <span style={{ fontSize: '11px', opacity: 0.8 }}>Duración:</span>
@@ -1660,7 +1773,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                     <div style={{
                       position: 'absolute',
                       inset: 0,
-                      background: 'rgba(0, 0, 0, 0.6)',
+                      background: colors.surface,
                       clipPath: `polygon(
                         0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%,
                         ${(cropConfig.x / videoWidth) * 100}% ${(cropConfig.y / videoHeight) * 100}%,
@@ -1709,7 +1822,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                         left: '50%',
                         transform: 'translate(-50%, -50%)',
                         background: 'rgba(16, 185, 129, 0.8)',
-                        borderRadius: '8px',
+                        borderRadius: neoBrutalism.shape.medium,
                         padding: '8px 12px',
                         display: 'flex',
                         alignItems: 'center',
@@ -1727,7 +1840,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                         background: 'rgba(16, 185, 129, 0.95)',
                         color: '#fff',
                         padding: '4px 10px',
-                        borderRadius: '4px',
+                        borderRadius: neoBrutalism.shape.medium,
                         fontSize: '12px',
                         fontWeight: '700',
                         pointerEvents: 'none',
@@ -1739,10 +1852,10 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                         position: 'absolute',
                         bottom: '8px',
                         right: '8px',
-                        background: 'rgba(0, 0, 0, 0.7)',
+                        background: colors.surface,
                         color: '#fff',
                         padding: '4px 8px',
-                        borderRadius: '4px',
+                        borderRadius: neoBrutalism.shape.medium,
                         fontSize: '10px',
                         fontFamily: 'monospace',
                         pointerEvents: 'none',
@@ -1762,7 +1875,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                     background: 'rgba(255, 20, 138, 0.9)',
                     color: '#fff',
                     padding: '6px 12px',
-                    borderRadius: '8px',
+                    borderRadius: neoBrutalism.shape.medium,
                     fontSize: '12px',
                     fontWeight: '600',
                     display: 'flex',
@@ -1818,30 +1931,30 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                 position: 'absolute', top: 0, right: 0, bottom: 0,
                 width: sidebarOpen ? (isMobile ? '300px' : '360px') : '50px',
                 background: sidebarOpen
-                  ? `linear-gradient(180deg, rgba(18, 18, 26, 0.98) 0%, rgba(10, 10, 15, 0.98) 100%)`
-                  : 'rgba(18, 18, 26, 0.9)',
+                  ? neoBrutalism.colors.surfaceContainerHigh
+                  : neoBrutalism.colors.surfaceContainer,
                 backdropFilter: 'blur(16px)',
                 borderLeft: `1px solid ${colors.border}`,
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 display: 'flex', flexDirection: 'column',
                 zIndex: 20,
-                boxShadow: sidebarOpen ? '-8px 0 30px rgba(0, 0, 0, 0.3)' : 'none',
+                boxShadow: sidebarOpen ? neoBrutalism.elevation.level2.shadow : 'none',
               }}>
-                {/* Sidebar Toggle - Gradient Header */}
+                {/* Sidebar Toggle - Material Design 3 */}
                 <button
                   onClick={() => setSidebarOpen(!sidebarOpen)}
                   style={{
-                    background: colors.gradient,
+                    background: neoBrutalism.colors.primaryContainer,
                     border: 'none',
-                    color: '#fff',
+                    color: neoBrutalism.colors.onPrimaryContainer,
                     padding: '12px 16px',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: sidebarOpen ? 'space-between' : 'center',
                     gap: '8px',
-                    borderBottom: `1px solid rgba(255,255,255,0.1)`,
-                    boxShadow: '0 4px 15px rgba(0, 229, 255, 0.2)',
+                    borderBottom: `1px solid ${neoBrutalism.colors.outlineVariant}`,
+                    boxShadow: neoBrutalism.elevation.level0.shadow,
                     flexShrink: 0,
                   }}
                 >
@@ -1874,7 +1987,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                         <div style={{
                           width: '60px',
                           height: '60px',
-                          borderRadius: '16px',
+                          borderRadius: neoBrutalism.shape.medium,
                           background: colors.card,
                           display: 'flex',
                           alignItems: 'center',
@@ -1885,10 +1998,11 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                         </div>
                         <p style={{ margin: '0 0 12px', fontSize: '14px', color: colors.text }}>Aún no hay clips</p>
                         <div style={{
-                          background: colors.card,
-                          borderRadius: '10px',
+                          background: neoBrutalism.colors.surfaceContainerHigh,
+                          borderRadius: neoBrutalism.shape.medium,
                           padding: '14px',
                           textAlign: 'left',
+                          boxShadow: neoBrutalism.elevation.level1.shadow,
                         }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                             <span style={{
@@ -1896,7 +2010,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                               color: '#000',
                               width: '24px',
                               height: '24px',
-                              borderRadius: '6px',
+                              borderRadius: neoBrutalism.shape.medium,
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -1913,7 +2027,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                               color: '#fff',
                               width: '24px',
                               height: '24px',
-                              borderRadius: '6px',
+                              borderRadius: neoBrutalism.shape.medium,
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -1947,8 +2061,8 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                                   ? 'rgba(59, 130, 246, 0.3)'
                                   : isEditing
                                     ? 'rgba(245, 158, 11, 0.25)'
-                                    : seg.selected ? 'rgba(16, 185, 129, 0.15)' : colors.surface,
-                                borderRadius: '10px',
+                                    : seg.selected ? 'rgba(16, 185, 129, 0.15)' : neoBrutalism.colors.surfaceContainerHigh,
+                                borderRadius: neoBrutalism.shape.medium,
                                 padding: '12px',
                                 border: `2px solid ${isDragOver ? colors.secondary : isEditing ? colors.accent : seg.selected ? colors.primary : colors.border}`,
                                 cursor: isDragging ? 'grabbing' : 'grab',
@@ -1956,6 +2070,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                                 position: 'relative',
                                 opacity: isDragging ? 0.5 : 1,
                                 transform: isDragOver ? 'scale(1.02)' : 'none',
+                                boxShadow: seg.selected ? neoBrutalism.elevation.level1.shadow : 'none',
                               }}
                             >
                               {/* Edit mode indicator */}
@@ -1963,7 +2078,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                                 <div style={{
                                   position: 'absolute', top: '-8px', right: '8px',
                                   background: colors.accent, color: '#000',
-                                  padding: '2px 8px', borderRadius: '4px',
+                                  padding: '2px 8px', borderRadius: neoBrutalism.shape.medium,
                                   fontSize: '10px', fontWeight: '700',
                                 }}>
                                   ✏️ EDITANDO
@@ -1986,7 +2101,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                                 <div
                                   onClick={(e) => { e.stopPropagation(); toggleSegment(seg.id); }}
                                   style={{
-                                    width: '28px', height: '28px', borderRadius: '8px',
+                                    width: '28px', height: '28px', borderRadius: neoBrutalism.shape.medium,
                                     background: seg.selected ? colors.primary : colors.card,
                                     border: `2px solid ${seg.selected ? colors.primary : colors.border}`,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -2001,7 +2116,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                                 <div style={{
                                   width: '4px', height: '20px',
                                   background: segColors[i % segColors.length],
-                                  borderRadius: '2px', flexShrink: 0,
+                                  borderRadius: neoBrutalism.shape.medium, flexShrink: 0,
                                 }} />
                                 <span style={{ color: colors.text, fontSize: '14px', fontWeight: '600', flex: 1 }}>
                                   {seg.name}
@@ -2023,7 +2138,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                                       color: (clipBlurZones[seg.id]?.enabled !== false) ? colors.accent : colors.textMuted,
                                       cursor: 'pointer',
                                       padding: '4px',
-                                      borderRadius: '4px',
+                                      borderRadius: neoBrutalism.shape.medium,
                                       display: 'flex',
                                       alignItems: 'center',
                                       gap: '2px',
@@ -2032,6 +2147,33 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                                   >
                                     <MdBlurOn size={14} />
                                   </button>
+                                )}
+                                {/* Crop indicator */}
+                                {seg.cropConfig?.enabled && (
+                                  <div
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedSegmentId(seg.id);
+                                      setShowCropKeyframesPanel(true);
+                                    }}
+                                    style={{
+                                      background: `${colors.primary}30`,
+                                      border: `1px solid ${colors.primary}`,
+                                      color: colors.primary,
+                                      padding: '4px 6px',
+                                      borderRadius: neoBrutalism.shape.medium,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      fontSize: '10px',
+                                      fontWeight: '600',
+                                      cursor: 'pointer',
+                                    }}
+                                    title={`Crop ${seg.cropConfig.preset?.toUpperCase()} aplicado - Click para editar`}
+                                  >
+                                    <FiCrop size={12} />
+                                    {seg.cropConfig.preset?.toUpperCase()}
+                                  </div>
                                 )}
                                 {/* Edit button */}
                                 <button
@@ -2045,7 +2187,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                                     color: isEditing ? '#000' : colors.textMuted,
                                     cursor: 'pointer',
                                     padding: '4px',
-                                    borderRadius: '4px',
+                                    borderRadius: neoBrutalism.shape.medium,
                                   }}
                                   title={isEditing ? "Cancelar edición" : "Editar clip"}
                                 >
@@ -2068,7 +2210,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                                 <span>{fmt(seg.start)} → {fmt(seg.end || duration)}</span>
                                 <span style={{
                                   background: colors.card, padding: '2px 8px',
-                                  borderRadius: '4px', color: colors.primary, fontWeight: '600',
+                                  borderRadius: neoBrutalism.shape.medium, color: colors.primary, fontWeight: '600',
                                 }}>
                                   {fmt((seg.end || duration) - seg.start)}
                                 </span>
@@ -2077,7 +2219,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                               {isEditing && (
                                 <div style={{
                                   marginTop: '8px', padding: '8px',
-                                  background: 'rgba(0,0,0,0.3)', borderRadius: '6px',
+                                  background: colors.bg, borderRadius: neoBrutalism.shape.medium,
                                   fontSize: '11px', color: colors.textSecondary,
                                   textAlign: 'center',
                                 }}>
@@ -2098,7 +2240,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                   <div style={{
                     borderTop: `1px solid ${colors.border}`,
                     padding: '10px',
-                    background: `linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.4) 100%)`,
+                    background: neoBrutalism.colors.surface,
                   }}>
                     {/* Compact header with duration and clip count */}
                     {(() => {
@@ -2117,7 +2259,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                           marginBottom: '10px',
                           padding: '8px 12px',
                           background: colors.card,
-                          borderRadius: '10px',
+                          borderRadius: neoBrutalism.shape.medium,
                           border: `1px solid ${colors.border}`,
                         }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2140,7 +2282,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                                 background: !exportSeparate ? colors.primary : 'transparent',
                                 color: !exportSeparate ? '#000' : colors.textMuted,
                                 border: !exportSeparate ? 'none' : `1px solid ${colors.border}`,
-                                borderRadius: '6px',
+                                borderRadius: neoBrutalism.shape.medium,
                                 padding: '4px 10px',
                                 cursor: 'pointer',
                                 fontSize: '10px',
@@ -2156,7 +2298,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                                 background: exportSeparate ? colors.secondary : 'transparent',
                                 color: exportSeparate ? '#fff' : colors.textMuted,
                                 border: exportSeparate ? 'none' : `1px solid ${colors.border}`,
-                                borderRadius: '6px',
+                                borderRadius: neoBrutalism.shape.medium,
                                 padding: '4px 10px',
                                 cursor: 'pointer',
                                 fontSize: '10px',
@@ -2184,7 +2326,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                             background: colors.primary,
                             color: '#000',
                             padding: '4px 10px',
-                            borderRadius: '6px',
+                            borderRadius: neoBrutalism.shape.medium,
                             fontSize: '10px',
                             fontWeight: '600',
                             display: 'flex',
@@ -2199,7 +2341,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                             background: colors.secondary,
                             color: '#fff',
                             padding: '4px 10px',
-                            borderRadius: '6px',
+                            borderRadius: neoBrutalism.shape.medium,
                             fontSize: '10px',
                             fontWeight: '600',
                             display: 'flex',
@@ -2222,7 +2364,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                         background: isPreviewMode ? colors.danger : colors.accent,
                         color: isPreviewMode ? '#fff' : '#000',
                         border: 'none',
-                        borderRadius: '8px',
+                        borderRadius: neoBrutalism.shape.medium,
                         padding: '10px 14px',
                         fontSize: '13px',
                         fontWeight: '700',
@@ -2250,7 +2392,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                           background: !exportSeparate ? colors.primary : colors.card,
                           color: !exportSeparate ? '#000' : colors.text,
                           border: !exportSeparate ? 'none' : `1px solid ${colors.border}`,
-                          borderRadius: '8px',
+                          borderRadius: neoBrutalism.shape.medium,
                           padding: '10px',
                           cursor: 'pointer',
                           fontSize: '12px',
@@ -2271,7 +2413,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                           background: exportSeparate ? colors.secondary : colors.card,
                           color: exportSeparate ? '#fff' : colors.text,
                           border: exportSeparate ? 'none' : `1px solid ${colors.border}`,
-                          borderRadius: '8px',
+                          borderRadius: neoBrutalism.shape.medium,
                           padding: '10px',
                           cursor: 'pointer',
                           fontSize: '12px',
@@ -2290,10 +2432,11 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                     {/* Export Button with Progress */}
                     {isExporting ? (
                       <div style={{
-                        background: colors.card,
-                        borderRadius: '10px',
+                        background: neoBrutalism.colors.surfaceContainerHigh,
+                        borderRadius: neoBrutalism.shape.medium,
                         padding: '12px',
                         marginBottom: '8px',
+                        boxShadow: neoBrutalism.elevation.level1.shadow,
                       }}>
                         <div style={{
                           display: 'flex',
@@ -2318,14 +2461,14 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                           width: '100%',
                           height: '8px',
                           background: colors.border,
-                          borderRadius: '4px',
+                          borderRadius: neoBrutalism.shape.full,
                           overflow: 'hidden',
                         }}>
                           <div style={{
                             width: `${exportProgress}%`,
                             height: '100%',
-                            background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})`,
-                            borderRadius: '4px',
+                            background: colors.primary,
+                            borderRadius: neoBrutalism.shape.full,
                             transition: 'width 0.3s ease',
                           }} />
                         </div>
@@ -2356,7 +2499,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                               background: isGeneratingPreview ? colors.card : 'rgba(139, 92, 246, 0.2)',
                               color: isGeneratingPreview ? colors.textMuted : '#8b5cf6',
                               border: `1px solid ${isGeneratingPreview ? colors.border : '#8b5cf6'}`,
-                              borderRadius: '6px',
+                              borderRadius: neoBrutalism.shape.medium,
                               padding: '6px 10px',
                               fontSize: '11px',
                               fontWeight: '600',
@@ -2382,10 +2525,10 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                           disabled={selectedCount === 0}
                           style={{
                             width: '100%',
-                            background: colors.gradient,
-                            color: '#fff',
+                            background: neoBrutalism.colors.primary,
+                            color: neoBrutalism.colors.onPrimary,
                             border: 'none',
-                            borderRadius: '12px',
+                            borderRadius: neoBrutalism.shape.medium,
                             padding: '14px 18px',
                             fontSize: '15px',
                             fontWeight: '700',
@@ -2395,9 +2538,8 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                             alignItems: 'center',
                             justifyContent: 'center',
                             gap: '10px',
-                            boxShadow: '0 6px 20px rgba(0, 229, 255, 0.35), 0 0 30px rgba(255, 20, 138, 0.15)',
+                            boxShadow: neoBrutalism.elevation.level1.shadow,
                             transition: 'all 0.2s ease',
-                            textShadow: '0 1px 3px rgba(0,0,0,0.3)',
                           }}
                         >
                           <span style={{ fontSize: '18px' }}>{exportSeparate ? '◇' : '◆'}</span>
@@ -2411,10 +2553,10 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                         style={{
                           width: '100%',
                           marginTop: '8px',
-                          background: colors.gradientAccent,
-                          color: '#fff',
+                          background: neoBrutalism.colors.tertiary,
+                          color: neoBrutalism.colors.onTertiary,
                           border: 'none',
-                          borderRadius: '10px',
+                          borderRadius: neoBrutalism.shape.medium,
                           padding: '12px 16px',
                           fontSize: '13px',
                           fontWeight: '700',
@@ -2423,7 +2565,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                           alignItems: 'center',
                           justifyContent: 'center',
                           gap: '6px',
-                          boxShadow: '0 4px 15px rgba(255, 20, 138, 0.25)',
+                          boxShadow: neoBrutalism.elevation.level1.shadow,
                           animation: 'pulse 2s infinite',
                         }}
                       >
@@ -2444,10 +2586,11 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                 onTouchStart={startTimeline}
                 style={{
                   position: 'relative', height: isMobile ? '48px' : '56px',
-                  background: colors.card, borderRadius: '12px', 
+                  background: neoBrutalism.colors.surfaceContainerHigh, borderRadius: neoBrutalism.shape.medium,
                   cursor: isDraggingTimeline ? 'grabbing' : 'grab',
                   overflow: 'hidden', touchAction: 'none',
                   userSelect: 'none',
+                  boxShadow: neoBrutalism.elevation.level1.shadow,
                 }}
               >
                 {waveformUrl && (
@@ -2466,7 +2609,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                     height: '100%',
                     background: segColors[i % segColors.length],
                     opacity: seg.selected ? 0.6 : 0.3,
-                    borderRadius: '4px',
+                    borderRadius: neoBrutalism.shape.medium,
                   }} />
                 ))}
 
@@ -2487,7 +2630,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                   position: 'absolute', left: `${(currentTime / duration) * 100}%`,
                   top: 0, bottom: 0, width: isDraggingTimeline ? '4px' : '3px',
                   background: isDraggingTimeline ? colors.primary : colors.danger, 
-                  borderRadius: '2px', zIndex: 10,
+                  borderRadius: neoBrutalism.shape.medium, zIndex: 10,
                   boxShadow: `0 0 ${isDraggingTimeline ? '12px' : '8px'} ${isDraggingTimeline ? colors.primary : colors.danger}`,
                   transition: isDraggingTimeline ? 'none' : 'all 0.1s ease',
                   cursor: isDraggingTimeline ? 'grabbing' : 'grab',
@@ -2513,31 +2656,43 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
               {/* Playback + Cut controls in one row */}
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
                 {/* Back 10s */}
-                <button onClick={() => {
-                  if (videoRef.current) {
-                    seekVideo(Math.max(0, videoRef.current.currentTime - 10));
-                  }
-                }} style={iconBtn} title="-10s">
+                <NeoIconButton
+                  onClick={() => {
+                    if (videoRef.current) {
+                      seekVideo(Math.max(0, videoRef.current.currentTime - 10));
+                    }
+                  }}
+                  variant="standard"
+                  size="medium"
+                  title="-10s"
+                >
                   <IoMdSkipBackward size={20} />
-                </button>
+                </NeoIconButton>
 
                 {/* Play/Pause */}
-                <button
+                <NeoIconButton
                   onClick={() => videoRef.current && (videoRef.current.paused ? videoRef.current.play() : videoRef.current.pause())}
-                  style={{ ...iconBtn, background: colors.primary, border: 'none', width: isMobile ? '52px' : '56px', height: isMobile ? '52px' : '56px' }}
+                  variant="filled"
+                  color="primary"
+                  size="large"
                   title="Play/Pause"
                 >
                   {isPlaying ? <IoMdPause size={26} /> : <IoMdPlay size={26} style={{ marginLeft: '2px' }} />}
-                </button>
+                </NeoIconButton>
 
                 {/* Forward 10s */}
-                <button onClick={() => {
-                  if (videoRef.current) {
-                    seekVideo(Math.min(duration, videoRef.current.currentTime + 10));
-                  }
-                }} style={iconBtn} title="+10s">
+                <NeoIconButton
+                  onClick={() => {
+                    if (videoRef.current) {
+                      seekVideo(Math.min(duration, videoRef.current.currentTime + 10));
+                    }
+                  }}
+                  variant="standard"
+                  size="medium"
+                  title="+10s"
+                >
                   <IoMdSkipForward size={20} />
-                </button>
+                </NeoIconButton>
 
                 {/* Divider */}
                 <div style={{ width: '1px', height: '32px', background: colors.border, margin: '0 8px' }} />
@@ -2546,24 +2701,27 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                 <button
                   onClick={handleMarkStart}
                   style={{
-                    ...iconBtn,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    border: pendingCutStart !== null ? 'none' : `1px solid ${colors.border}`,
                     width: 'auto',
                     minWidth: isMobile ? '85px' : '115px',
                     height: isMobile ? '50px' : '56px',
                     padding: '0 18px',
-                    borderRadius: '16px',
+                    borderRadius: neoBrutalism.shape.full,
                     background: pendingCutStart !== null
-                      ? `linear-gradient(135deg, ${colors.accent} 0%, #FF9500 100%)`
-                      : `linear-gradient(145deg, ${colors.card} 0%, ${colors.surface} 100%)`,
+                      ? colors.accent
+                      : colors.card,
                     color: pendingCutStart !== null ? '#000' : colors.text,
                     fontSize: '14px',
                     fontWeight: '700',
                     gap: '8px',
                     boxShadow: pendingCutStart !== null
                       ? '0 6px 20px rgba(255, 200, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.3)'
-                      : '0 2px 10px rgba(0,0,0,0.2)',
+                      : '0 2px 10px transparent',
                     transition: 'all 0.2s ease',
-                    border: pendingCutStart !== null ? 'none' : `1px solid ${colors.border}`,
                   }}
                   title="Marcar punto de inicio (tecla I)"
                 >
@@ -2576,14 +2734,14 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                     <span style={{
                       fontWeight: '800',
                       fontSize: '20px',
-                      background: pendingCutStart !== null ? 'rgba(0,0,0,0.15)' : colors.gradient,
+                      background: pendingCutStart !== null ? neoBrutalism.colors.success : neoBrutalism.colors.primary,
                       width: '30px',
                       height: '30px',
-                      borderRadius: '8px',
+                      borderRadius: neoBrutalism.shape.small,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: pendingCutStart !== null ? '#000' : '#fff',
+                      color: neoBrutalism.colors.onPrimary,
                     }}>I</span>
                     <span style={{ fontSize: '10px', fontWeight: '600' }}>
                       {pendingCutStart !== null ? '✓ Listo' : 'Marcar IN'}
@@ -2591,28 +2749,30 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                   </div>
                 </button>
 
-                {/* O - Set Out Point - Gemstone Style */}
+                {/* O - Set Out Point - Material Design 3 */}
                 <button
                   onClick={handleMarkEnd}
                   disabled={pendingCutStart === null && !editingClipId}
                   style={{
-                    ...iconBtn,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     width: 'auto',
                     minWidth: isMobile ? '85px' : '115px',
                     height: isMobile ? '50px' : '56px',
                     padding: '0 18px',
-                    borderRadius: '16px',
+                    borderRadius: neoBrutalism.shape.full,
                     background: pendingCutStart !== null
-                      ? colors.gradientAccent
-                      : `linear-gradient(145deg, ${colors.card} 0%, ${colors.surface} 100%)`,
+                      ? neoBrutalism.colors.tertiary
+                      : neoBrutalism.colors.surfaceContainer,
                     border: pendingCutStart !== null ? 'none' : `1px solid ${colors.border}`,
-                    color: pendingCutStart !== null ? '#fff' : colors.textMuted,
+                    color: pendingCutStart !== null ? neoBrutalism.colors.onTertiary : colors.textMuted,
                     fontSize: '14px',
                     fontWeight: '700',
                     gap: '8px',
                     boxShadow: pendingCutStart !== null
-                      ? '0 6px 20px rgba(255, 20, 138, 0.5), inset 0 1px 0 rgba(255,255,255,0.2)'
-                      : '0 2px 10px rgba(0,0,0,0.2)',
+                      ? neoBrutalism.elevation.level2.shadow
+                      : neoBrutalism.elevation.level0.shadow,
                     opacity: pendingCutStart === null && !editingClipId ? 0.5 : 1,
                     cursor: pendingCutStart === null && !editingClipId ? 'not-allowed' : 'pointer',
                     transition: 'all 0.2s ease',
@@ -2631,7 +2791,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                       background: pendingCutStart !== null ? 'rgba(255,255,255,0.2)' : colors.border,
                       width: '30px',
                       height: '30px',
-                      borderRadius: '8px',
+                      borderRadius: neoBrutalism.shape.small,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -2650,8 +2810,19 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                   onClick={handleScreenshot}
                   disabled={isCapturingScreenshot}
                   style={{
-                    ...iconBtn,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: neoBrutalism.colors.surfaceContainerHigh,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: neoBrutalism.shape.full,
+                    width: '44px',
+                    height: '44px',
+                    cursor: isCapturingScreenshot ? 'not-allowed' : 'pointer',
+                    color: colors.text,
                     opacity: isCapturingScreenshot ? 0.7 : 1,
+                    transition: 'all 0.2s ease',
+                    boxShadow: neoBrutalism.elevation.level1.shadow,
                   }}
                   title="Take Screenshot"
                 >
@@ -2670,10 +2841,10 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                 <button
                   onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
                   style={{
-                    background: leftSidebarOpen ? colors.gradientAccent : colors.card,
-                    color: leftSidebarOpen ? '#fff' : colors.text,
+                    background: leftSidebarOpen ? neoBrutalism.colors.tertiaryContainer : neoBrutalism.colors.surfaceContainer,
+                    color: leftSidebarOpen ? neoBrutalism.colors.onTertiaryContainer : colors.text,
                     border: leftSidebarOpen ? 'none' : `1px solid ${colors.border}`,
-                    borderRadius: '10px',
+                    borderRadius: neoBrutalism.shape.full,
                     padding: isMobile ? '10px 14px' : '12px 18px',
                     fontSize: isMobile ? '12px' : '13px',
                     fontWeight: '600',
@@ -2684,13 +2855,13 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                     transition: 'all 0.2s ease',
                   }}
                 >
-                  <span style={{ fontSize: '14px' }}>🎬</span>
+                  <FiFilm size={14} />
                   Herramientas
                   {(cropConfig.enabled || blurConfig.mode === 'auto') && (
                     <span style={{
                       background: 'rgba(255,255,255,0.2)',
                       padding: '2px 6px',
-                      borderRadius: '4px',
+                      borderRadius: neoBrutalism.shape.full,
                       fontSize: '10px',
                     }}>
                       {(cropConfig.enabled ? 1 : 0) + (blurConfig.mode === 'auto' ? 1 : 0)}
@@ -2704,7 +2875,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                     background: sidebarOpen ? colors.primary : colors.card,
                     color: sidebarOpen ? '#000' : colors.text,
                     border: sidebarOpen ? 'none' : `1px solid ${colors.border}`,
-                    borderRadius: '10px',
+                    borderRadius: neoBrutalism.shape.full,
                     padding: isMobile ? '10px 14px' : '12px 18px',
                     fontSize: isMobile ? '12px' : '13px',
                     fontWeight: '600',
@@ -2719,10 +2890,10 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                   Clips
                   {segments.length > 0 && (
                     <span style={{
-                      background: sidebarOpen ? 'rgba(0,0,0,0.2)' : colors.primary,
+                      background: sidebarOpen ? 'transparent' : colors.primary,
                       color: sidebarOpen ? '#000' : '#fff',
                       padding: '2px 8px',
-                      borderRadius: '4px',
+                      borderRadius: neoBrutalism.shape.full,
                       fontSize: '11px',
                       fontWeight: '700',
                     }}>
@@ -2770,13 +2941,13 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                 : colors.secondary,
               color: toast.type === 'warning' ? '#000' : '#fff',
               padding: '12px 20px',
-              borderRadius: '10px',
+              borderRadius: neoBrutalism.shape.medium,
               fontSize: '14px',
               fontWeight: '500',
               display: 'flex',
               alignItems: 'center',
               gap: '12px',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+              boxShadow: neoBrutalism.shadows.medium,
               pointerEvents: 'auto',
               animation: 'slideUp 0.3s ease',
             }}
@@ -2791,7 +2962,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                   border: 'none',
                   color: 'inherit',
                   padding: '4px 12px',
-                  borderRadius: '6px',
+                  borderRadius: neoBrutalism.shape.medium,
                   cursor: 'pointer',
                   fontWeight: '600',
                   fontSize: '13px',
@@ -2823,7 +2994,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
         <div style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(0,0,0,0.8)',
+          background: 'colors.surface',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -2831,13 +3002,13 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
         }}>
           <div style={{
             background: colors.surface,
-            borderRadius: '16px',
+            borderRadius: neoBrutalism.shape.medium,
             padding: '32px',
             maxWidth: '400px',
             textAlign: 'center',
             border: `1px solid ${colors.border}`,
           }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>✂️</div>
+            <div style={{ marginBottom: '16px' }}><FiScissors size={48} /></div>
             <h2 style={{ color: colors.text, margin: '0 0 12px', fontSize: '22px' }}>
               ¡Bienvenido a LosslessCut!
             </h2>
@@ -2846,7 +3017,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
             </p>
             <div style={{
               background: colors.card,
-              borderRadius: '12px',
+              borderRadius: neoBrutalism.shape.medium,
               padding: '20px',
               marginBottom: '24px',
               textAlign: 'left',
@@ -2857,7 +3028,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                   color: '#000',
                   width: '32px',
                   height: '32px',
-                  borderRadius: '8px',
+                  borderRadius: neoBrutalism.shape.medium,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -2872,7 +3043,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                   color: '#fff',
                   width: '32px',
                   height: '32px',
-                  borderRadius: '8px',
+                  borderRadius: neoBrutalism.shape.medium,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -2887,7 +3058,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                   color: colors.text,
                   width: '32px',
                   height: '32px',
-                  borderRadius: '8px',
+                  borderRadius: neoBrutalism.shape.medium,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -2906,7 +3077,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                 background: colors.primary,
                 color: '#fff',
                 border: 'none',
-                borderRadius: '10px',
+                borderRadius: neoBrutalism.shape.medium,
                 padding: '14px 32px',
                 fontSize: '16px',
                 fontWeight: '600',
@@ -2933,7 +3104,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
         }}>
           <div style={{
             background: colors.surface,
-            borderRadius: '16px',
+            borderRadius: neoBrutalism.shape.medium,
             padding: '24px',
             maxWidth: '90vw',
             maxHeight: '90vh',
@@ -2952,7 +3123,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                 <div style={{
                   width: '40px',
                   height: '40px',
-                  borderRadius: '10px',
+                  borderRadius: neoBrutalism.shape.medium,
                   background: '#8b5cf6',
                   display: 'flex',
                   alignItems: 'center',
@@ -2982,7 +3153,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                   color: colors.textMuted,
                   cursor: 'pointer',
                   padding: '10px',
-                  borderRadius: '8px',
+                  borderRadius: neoBrutalism.shape.medium,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -2995,7 +3166,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
             {/* Video Preview */}
             <div style={{
               background: '#000',
-              borderRadius: '12px',
+              borderRadius: neoBrutalism.shape.medium,
               overflow: 'hidden',
               marginBottom: '16px',
             }}>
@@ -3015,7 +3186,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
             {/* Info */}
             <div style={{
               background: colors.card,
-              borderRadius: '10px',
+              borderRadius: neoBrutalism.shape.medium,
               padding: '14px',
               marginBottom: '16px',
             }}>
@@ -3045,7 +3216,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                   background: colors.card,
                   color: colors.text,
                   border: `1px solid ${colors.border}`,
-                  borderRadius: '10px',
+                  borderRadius: neoBrutalism.shape.medium,
                   padding: '12px',
                   fontSize: '14px',
                   fontWeight: '600',
@@ -3066,7 +3237,7 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
                   background: colors.primary,
                   color: '#fff',
                   border: 'none',
-                  borderRadius: '10px',
+                  borderRadius: neoBrutalism.shape.medium,
                   padding: '12px',
                   fontSize: '14px',
                   fontWeight: '600',
@@ -3092,6 +3263,100 @@ export default function VideoEditor({ onClose, initialVideoId }: Props) {
           onChange={setWatermarkConfig}
           onClose={() => setShowWatermarkSettings(false)}
         />
+      )}
+
+      {/* Crop Keyframes Panel */}
+      {showCropKeyframesPanel && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px',
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '600px',
+            maxHeight: '90vh',
+          }}>
+            <CropKeyframePanel
+              segments={segments}
+              videoWidth={videoWidth}
+              videoHeight={videoHeight}
+              globalCropConfig={cropConfig}
+              onGlobalCropChange={setCropConfig}
+              onSegmentCropChange={handleSegmentCropChange}
+              onClose={() => {
+                setShowCropKeyframesPanel(false);
+                setSelectedSegmentId(null);
+              }}
+              currentTime={currentTime}
+              onSeekTo={seekVideo}
+              initialSegmentId={selectedSegmentId}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Replace Intro Modal */}
+      {showReplaceIntroModal && videoId && (
+        <ReplaceIntroModal
+          videoId={videoId}
+          onClose={() => setShowReplaceIntroModal(false)}
+          onSuccess={(newVideoId) => {
+            setShowReplaceIntroModal(false);
+            // Reload the new video
+            setVideoId(newVideoId);
+            setVideoUrl(`/api/videos/${newVideoId}/stream`);
+            // Show success message
+            alert('Intro replaced successfully! The video has been updated.');
+          }}
+        />
+      )}
+
+      {/* Upload Progress Modal */}
+      {isUploading && (
+        <div style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 400,
+          maxWidth: '90vw',
+          backgroundColor: neoBrutalism.colors.surfaceContainerHigh,
+          borderRadius: neoBrutalism.shape.medium,
+          border: `1px solid ${neoBrutalism.colors.outline}`,
+          boxShadow: neoBrutalism.elevation.level3.shadow,
+          padding: 24,
+          zIndex: 1000,
+        }}>
+          <h3 style={{ margin: '0 0 16px', color: neoBrutalism.colors.text.primary, fontSize: 16 }}>
+            Subiendo video...
+          </h3>
+          <div style={{
+            width: '100%',
+            height: 8,
+            backgroundColor: neoBrutalism.colors.surfaceContainerLowest,
+            borderRadius: neoBrutalism.shape.full,
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              width: `${uploadProgress}%`,
+              height: '100%',
+              backgroundColor: neoBrutalism.colors.primary,
+              transition: 'width 0.3s ease',
+            }} />
+          </div>
+          <p style={{ margin: '12px 0 0', color: neoBrutalism.colors.onSurfaceVariant, fontSize: 14, textAlign: 'center' }}>
+            {uploadProgress}%
+          </p>
+        </div>
       )}
 
       {/* CSS Animation */}

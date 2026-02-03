@@ -54,6 +54,14 @@ export interface Segment {
   tags?: Record<string, string>;
   color?: number;
   selected?: boolean;
+  cropConfig?: {
+    enabled: boolean;
+    preset: string | null;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 export interface Download {
@@ -155,29 +163,79 @@ export interface TimelineExportRequest {
 }
 
 class ApiClient {
-  async uploadVideo(file: File) {
-    const formData = new FormData();
-    formData.append('file', file);
-    const response = await fetch('/api/videos/upload', {
-      method: 'POST',
-      headers: { 'X-Session-ID': getSessionId() },
-      body: formData,
+  uploadVideo(
+    file: File,
+    onProgress?: (progress: number) => void
+  ): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const formData = new FormData();
+      formData.append('file', file);
+
+      // Upload progress tracking
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable && onProgress) {
+          const percentComplete = (e.loaded / e.total) * 100;
+          onProgress(Math.round(percentComplete));
+        }
+      });
+
+      // Success handler
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const response = JSON.parse(xhr.responseText);
+            resolve(response);
+          } catch (error) {
+            reject(new Error('Invalid JSON response'));
+          }
+        } else {
+          reject(new Error(`Upload failed: ${xhr.statusText}`));
+        }
+      });
+
+      // Error handler
+      xhr.addEventListener('error', () => {
+        reject(new Error('Network error during upload'));
+      });
+
+      // Abort handler
+      xhr.addEventListener('abort', () => {
+        reject(new Error('Upload aborted'));
+      });
+
+      xhr.open('POST', '/api/videos/upload');
+      xhr.setRequestHeader('X-Session-ID', getSessionId());
+      xhr.send(formData);
     });
-    if (!response.ok) throw new Error('Upload failed');
-    return response.json();
   }
 
   // Batch upload multiple videos
-  async batchUpload(files: File[]): Promise<BatchUploadResponse> {
-    const formData = new FormData();
-    files.forEach(file => formData.append('files', file));
-    const response = await fetch('/api/videos/batch-upload', {
-      method: 'POST',
-      headers: { 'X-Session-ID': getSessionId() },
-      body: formData,
-    });
-    if (!response.ok) throw new Error('Batch upload failed');
-    return response.json();
+  async batchUpload(
+    files: File[],
+    onProgress?: (fileIndex: number, progress: number) => void
+  ): Promise<BatchUploadResponse> {
+    const results: any[] = [];
+    const errors: string[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      try {
+        const result = await this.uploadVideo(files[i], (progress) => {
+          if (onProgress) onProgress(i, progress);
+        });
+        results.push(result.video);
+      } catch (error) {
+        console.error(`Failed to upload file ${files[i].name}:`, error);
+        errors.push(`${files[i].name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
+    return {
+      videos: results,
+      errors,
+      success: results.length,
+      failed: errors.length,
+    };
   }
 
   // Check codec compatibility for merging
@@ -422,6 +480,29 @@ class ApiClient {
 
   getWatermarkUrl(filename: string): string {
     return `/api/watermarks/${filename}`;
+  }
+
+  // Replace intro with image
+  async replaceIntroWithImage(videoId: string, imageFile: File, duration: number): Promise<Video> {
+    const formData = new FormData();
+    formData.append('image', imageFile);
+    formData.append('duration', duration.toString());
+
+    const response = await fetch(`/api/videos/${videoId}/replace-intro`, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-Session-ID': getSessionId(),
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to replace intro');
+    }
+
+    const data = await response.json();
+    return data.video;
   }
 
   // Get current session ID (for display or debugging)

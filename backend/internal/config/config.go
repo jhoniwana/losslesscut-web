@@ -86,7 +86,7 @@ func Load(configPath string) (*Config, error) {
 func setDefaults(v *viper.Viper) {
 	// Server defaults
 	v.SetDefault("server.host", "0.0.0.0")
-	v.SetDefault("server.port", 8082)
+	v.SetDefault("server.port", 9091)
 	v.SetDefault("server.max_upload_size", 10737418240) // 10GB
 	v.SetDefault("server.production", false)
 	v.SetDefault("server.cors_origins", []string{"*"})
