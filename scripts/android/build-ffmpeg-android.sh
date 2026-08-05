@@ -31,6 +31,13 @@ OUT="$SCRIPT_DIR/ffmpeg-dist/$ARCH"
 WORK="$SCRIPT_DIR/.ffmpeg-build"
 mkdir -p "$WORK" "$OUT/bin"
 
+# Si ya hay binarios compilados, no reconstruir (la recompilacion incremental
+# sobre un arbol sucio falla en el link de ffmpeg_g). Forzar con REBUILD_FFMPEG=1.
+if [ -f "$OUT/bin/ffmpeg" ] && [ -f "$OUT/bin/ffprobe" ] && [ -z "${REBUILD_FFMPEG:-}" ]; then
+    echo "== FFmpeg ya compilado ($OUT/bin); SKIP (REBUILD_FFMPEG=1 para recompilar) =="
+    exit 0
+fi
+
 if [ ! -f "$WORK/ffmpeg/configure" ]; then
     echo "== Descargando FFmpeg $FFMPEG_VERSION =="
     git clone --depth 1 --branch "$FFMPEG_VERSION" \
