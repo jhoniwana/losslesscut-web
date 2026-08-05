@@ -96,6 +96,8 @@ export default function App() {
   const [downloadStatus, setDownloadStatus] = useState('');
   const [downloadId, setDownloadId] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [completedDownloadName, setCompletedDownloadName] = useState<string | null>(null);
+  const [completedDownloadId, setCompletedDownloadId] = useState<string | null>(null);
   const [renamingVideoId, setRenamingVideoId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
@@ -227,6 +229,29 @@ export default function App() {
     }
   };
 
+  // Reproducir un archivo (corte o descarga): reproductor del sistema en
+  // Android (bridge.openVideo) o el navegador en desktop.
+  const playOutput = (file_name: string, downloadId?: string) => {
+    const bridge = (window as any).AndroidBridge;
+    if (bridge?.openVideo) {
+      bridge.openVideo(file_name);
+    } else if (downloadId) {
+      window.open(`/api/downloads/${downloadId}/file`, '_blank');
+    } else {
+      downloadOutput(file_name);
+    }
+  };
+
+  // Guardar el archivo en la galeria de Android (MediaStore).
+  const saveToGallery = (file_name: string) => {
+    const bridge = (window as any).AndroidBridge;
+    if (bridge?.saveToGallery) {
+      bridge.saveToGallery(file_name);
+    } else {
+      downloadOutput(file_name);
+    }
+  };
+
   const startRename = (id: string, currentName: string) => {
     setRenamingVideoId(id);
     setRenameValue(currentName);
@@ -352,6 +377,8 @@ export default function App() {
     setDownloadProgress(0);
     setDownloadStatus('Iniciando descarga...');
     setDownloadError(null);
+    setCompletedDownloadName(null);
+    setCompletedDownloadId(null);
 
     try {
       const res = await fetch('/api/downloads', {
@@ -417,6 +444,8 @@ export default function App() {
           setDownloadId(null);
           setDownloadProgress(100);
           setDownloadStatus('¡Descarga completada!');
+          setCompletedDownloadName((data.file_path || '').split('/').pop() || null);
+          setCompletedDownloadId(data.id || null);
 
           // Get the video ID and open editor automatically
           const videoId = data.video_id;
@@ -804,6 +833,90 @@ export default function App() {
                             <span>💾 {formatFileSize(video.size)}</span>
                             <span>🕒 {video.created_at ? new Date(video.created_at).toLocaleDateString() : ''}</span>
                           </div>
+
+                          {/* Cortes exportados de este video */}
+                          {(() => {
+                            const cuts = outputs.filter(o => o.video_id === video.id);
+                            return (
+                              <div style={{
+                                marginTop: '12px',
+                                paddingTop: '10px',
+                                borderTop: `1px solid ${colors.border}`,
+                              }}>
+                                <div style={{
+                                  fontSize: '12px',
+                                  fontWeight: '700',
+                                  color: colors.textSecondary,
+                                  marginBottom: '8px',
+                                }}>
+                                  ✂️ Cortes ({cuts.length})
+                                </div>
+                                {cuts.length === 0 ? (
+                                  <p style={{ color: colors.textMuted, fontSize: '12px', margin: 0 }}>
+                                    Todavía no hay cortes exportados de este video
+                                  </p>
+                                ) : (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    {cuts.map((cut) => (
+                                      <div key={cut.file_name} style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        background: colors.surface,
+                                        borderRadius: '8px',
+                                        padding: '8px 10px',
+                                      }}>
+                                        <span style={{
+                                          flex: 1,
+                                          minWidth: 0,
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis',
+                                          whiteSpace: 'nowrap',
+                                          fontSize: '12px',
+                                          color: colors.text,
+                                        }}>
+                                          {cut.file_name}
+                                        </span>
+                                        <span style={{ fontSize: '11px', color: colors.textMuted, flexShrink: 0 }}>
+                                          {formatFileSize(cut.size)}
+                                        </span>
+                                        <button onClick={() => playOutput(cut.file_name)} title="Reproducir" style={{
+                                          background: colors.primary, border: 'none', color: '#000',
+                                          width: '30px', height: '30px', borderRadius: '8px', cursor: 'pointer',
+                                          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                        }}>
+                                          <IoMdPlay size={14} />
+                                        </button>
+                                        <button onClick={() => shareOutput(cut.file_name)} title="Compartir" style={{
+                                          background: colors.card, border: `1px solid ${colors.border}`, color: colors.primary,
+                                          width: '30px', height: '30px', borderRadius: '8px', cursor: 'pointer',
+                                          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                        }}>
+                                          <FiShare2 size={13} />
+                                        </button>
+                                        {IS_ANDROID && (
+                                        <button onClick={() => saveToGallery(cut.file_name)} title="Guardar en galería" style={{
+                                          background: colors.card, border: `1px solid ${colors.border}`, color: colors.text,
+                                          width: '30px', height: '30px', borderRadius: '8px', cursor: 'pointer',
+                                          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                        }}>
+                                          <IoMdCloudDownload size={13} />
+                                        </button>
+                                        )}
+                                        <button onClick={() => deleteOutput(cut.file_name)} title="Eliminar" style={{
+                                          background: 'transparent', border: `1px solid ${colors.danger}`, color: colors.danger,
+                                          width: '30px', height: '30px', borderRadius: '8px', cursor: 'pointer',
+                                          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                        }}>
+                                          <FiTrash2 size={13} />
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                       </>
@@ -862,7 +975,31 @@ export default function App() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {outputs.map((output) => (
+          {(() => {
+            // Agrupar los cortes por video de origen
+            const byVideo = new Map<string, OutputFile[]>();
+            for (const o of outputs) {
+              const key = o.video_id || '__none__';
+              if (!byVideo.has(key)) byVideo.set(key, []);
+              byVideo.get(key)!.push(o);
+            }
+            const videoName = (id: string) => {
+              if (id === '__none__') return 'Sin vincular';
+              const v = videos.find((x) => x.id === id);
+              return v ? v.file_name : 'Sin vincular';
+            };
+            return Array.from(byVideo.entries()).map(([key, items]) => (
+              <div key={key}>
+                <div style={{
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  color: colors.secondary,
+                  margin: '4px 0 8px',
+                }}>
+                  🎬 {videoName(key)} ({items.length} {items.length === 1 ? 'corte' : 'cortes'})
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {items.map((output) => (
             <div
               key={output.file_name}
               style={{
@@ -911,6 +1048,24 @@ export default function App() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                <button
+                  onClick={() => playOutput(output.file_name)}
+                  title="Reproducir"
+                  style={{
+                    background: colors.primary,
+                    border: 'none',
+                    color: '#000',
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <IoMdPlay size={17} />
+                </button>
                 <button
                   onClick={() => shareOutput(output.file_name)}
                   title="Compartir"
@@ -969,7 +1124,11 @@ export default function App() {
                 </button>
               </div>
             </div>
-          ))}
+            ))}
+              </div>
+            </div>
+          ));
+        })()}
         </div>
       )}
     </>
@@ -1340,24 +1499,6 @@ export default function App() {
               </span>
             </div>
             {renderVideoList()}
-
-            {/* Exportaciones (cortes) */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginTop: '28px',
-              marginBottom: '12px',
-            }}>
-              <h2 style={{ margin: 0, fontSize: '17px', fontWeight: '700', color: colors.text }}>
-                <span style={{ color: colors.secondary, marginRight: '8px' }}>◆</span>
-                Mis Exportaciones
-              </h2>
-              <span style={{ color: colors.textMuted, fontSize: '13px' }}>
-                {outputs.length} {outputs.length === 1 ? 'corte' : 'cortes'}
-              </span>
-            </div>
-            {renderOutputList()}
           </div>
         )}
 
@@ -1794,6 +1935,74 @@ export default function App() {
                             borderRadius: '4px',
                             transition: 'width 0.3s ease',
                           }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Descarga completada: reproducir o guardar en galeria */}
+                    {downloadStatus === '¡Descarga completada!' && completedDownloadName && (
+                      <div style={{
+                        background: `${colors.primary}18`,
+                        border: `1px solid ${colors.primary}`,
+                        borderRadius: '14px',
+                        padding: '16px',
+                        marginBottom: '16px',
+                      }}>
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          marginBottom: '12px',
+                          color: colors.text,
+                          fontSize: '14px',
+                          fontWeight: '600',
+                        }}>
+                          <IoMdCheckmarkCircle size={20} color={colors.primary} />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {completedDownloadName}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            onClick={() => playOutput(completedDownloadName, completedDownloadId || undefined)}
+                            style={{
+                              flex: 1,
+                              background: colors.primary,
+                              border: 'none',
+                              color: '#000',
+                              padding: '12px 16px',
+                              borderRadius: '12px',
+                              cursor: 'pointer',
+                              fontSize: '14px',
+                              fontWeight: '700',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '8px',
+                            }}
+                          >
+                            <IoMdPlay size={18} /> Reproducir
+                          </button>
+                          <button
+                            onClick={() => saveToGallery(completedDownloadName)}
+                            style={{
+                              flex: 1,
+                              background: colors.card,
+                              border: `1px solid ${colors.border}`,
+                              color: colors.text,
+                              padding: '12px 16px',
+                              borderRadius: '12px',
+                              cursor: 'pointer',
+                              fontSize: '14px',
+                              fontWeight: '600',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '8px',
+                            }}
+                          >
+                            <IoMdCloudDownload size={18} /> Guardar en galería
+                          </button>
                         </div>
                       </div>
                     )}
