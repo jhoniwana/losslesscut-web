@@ -1457,11 +1457,11 @@ export default function App() {
             IguanaCut
           </div>
           <div style={{ color: colors.textMuted, fontSize: '12px', marginBottom: '14px' }}>
-            Creado por <span style={{ color: colors.secondary, fontWeight: '600' }}>Jhon Escorcia</span>
+            Creado por <span style={{ color: colors.secondary, fontWeight: '600' }}>jhoniwana</span>
             {' '}· v1.0.0
           </div>
           <a
-            href="https://github.com/jhoniwana/losslesscut-web"
+            href="https://github.com/jhoniwana/IguanaCut"
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -1480,7 +1480,7 @@ export default function App() {
             }}
           >
             <FiGithub size={18} color={colors.primary} />
-            github.com/jhoniwana/losslesscut-web
+            github.com/jhoniwana/IguanaCut
           </a>
           <div style={{
             marginTop: '14px',
