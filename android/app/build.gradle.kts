@@ -6,6 +6,11 @@ plugins {
 
 android {
     namespace = "com.losslesscut.app"
+    // targetSdk 28 es intencional (SELinux untrusted_app); el lint vital de
+    // Play (ExpiredTargetSdkVersion) no aplica a sideload -> lo desactivamos.
+    lint {
+        checkReleaseBuilds = false
+    }
     compileSdk = 35
 
     defaultConfig {
@@ -40,6 +45,8 @@ android {
 
     buildTypes {
         release {
+            // Sideload APK: firmado con la debug key para que instale directo.
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
